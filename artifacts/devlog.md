@@ -164,3 +164,5 @@ Replaced nixpkgs' `claude-code` with the package from `github:sadjow/claude-code
 - Applied `claude-code-nix.overlays.default` to `pkgsFor` so `pkgs.claude-code` resolves from the flake for bubblewrap backend (via `callPackage`)
 - Also injected the overlay into every `nixosSystem` call (container and VM backends) via `nixpkgs.overlays` module — without this, those NixOS evaluations would still pull `claude-code` from upstream nixpkgs
 - Backend `.nix` files unchanged — they still reference `pkgs.claude-code`, which the overlay shadows
+- Updated CLAUDE.md conventions section
+- Updated docs: introduction mentions sadjow/claude-code-nix, customization flake input example shows the overlay, NixOS module docs softened `allowUnfree` note
