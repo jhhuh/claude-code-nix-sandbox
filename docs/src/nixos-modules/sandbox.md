@@ -88,7 +88,7 @@ Extra NixOS modules for the VM.
 
 When enabled, the module also sets:
 
-- `nixpkgs.config.allowUnfree = true` — required for claude-code
+- `nixpkgs.config.allowUnfree = true` — may be required depending on claude-code source
 - `security.unprivilegedUsernsClone = true` — when bubblewrap is enabled (required for user namespaces)
 
 ## Example with customization

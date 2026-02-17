@@ -4,7 +4,7 @@
 
 Launch sandboxed [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code) sessions with Chromium using Nix.
 
-Claude Code runs inside an isolated sandbox with filesystem isolation, display forwarding, and a Chromium browser — all from nixpkgs. Three backends are available with increasing isolation strength:
+Claude Code (from [sadjow/claude-code-nix](https://github.com/sadjow/claude-code-nix)) runs inside an isolated sandbox with filesystem isolation, display forwarding, and a Chromium browser. Three backends are available with increasing isolation strength:
 
 | Backend | Isolation | Requires |
 |---|---|---|

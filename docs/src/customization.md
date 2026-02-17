@@ -88,17 +88,21 @@ packages.manager = pkgs.callPackage ./nix/manager/package.nix {
 ```nix
 {
   inputs.claude-sandbox.url = "github:jhhuh/claude-code-nix-sandbox";
+  inputs.claude-code-nix.url = "github:sadjow/claude-code-nix";
 
-  outputs = { nixpkgs, claude-sandbox, ... }:
+  outputs = { nixpkgs, claude-sandbox, claude-code-nix, ... }:
     let
-      pkgs = import nixpkgs { system = "x86_64-linux"; config.allowUnfree = true; };
+      pkgs = import nixpkgs {
+        system = "x86_64-linux";
+        overlays = [ claude-code-nix.overlays.default ];
+      };
     in {
-      # Use a backend directly
+      # Use a backend directly (needs claude-code-nix overlay for pkgs.claude-code)
       packages.x86_64-linux.my-sandbox = pkgs.callPackage
         "${claude-sandbox}/nix/backends/bubblewrap.nix"
         { extraPackages = [ pkgs.python3 ]; };
 
-      # Or use the pre-built packages
+      # Or use the pre-built packages (overlay already applied)
       packages.x86_64-linux.sandbox = claude-sandbox.packages.x86_64-linux.default;
     };
 }
