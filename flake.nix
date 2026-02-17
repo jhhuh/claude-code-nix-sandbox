@@ -79,11 +79,13 @@
         let pkgs = pkgsFor system;
         in {
           default = pkgs.mkShell {
-            packages = with pkgs; [
+            packages = [
+              (pkgs.callPackage ./scripts/claude-remote.nix { })
+            ] ++ (with pkgs; [
               nixd           # Nix LSP
               nil            # Alternative Nix LSP
               nixpkgs-fmt    # Nix formatter
-            ];
+            ]);
           };
 
           # Rust dev shell for the manager
