@@ -4,51 +4,39 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**claude-code-nix-sandbox** — Pure Nix machinery for launching sandboxed Claude Code sessions with Chromium browser access. Supports multiple isolation backends (NixOS VM, container, bubblewrap) with Chromium provided from nixpkgs inside the sandbox.
+**claude-code-nix-sandbox** — Pure Nix machinery for launching sandboxed Claude Code sessions with Chromium browser access. Two isolation backends: bubblewrap (unprivileged) and systemd-nspawn (root, stronger isolation).
 
 ## Architecture
 
 ```
-flake.nix              # Entry point: devShell, packages, NixOS modules
-nix/
-  lib/                 # Shared Nix utility functions
-  modules/             # NixOS module(s) for sandbox configuration
-  backends/            # Sandbox backend implementations
-    vm.nix             # QEMU/microvm-based NixOS VM
-    container.nix      # nixos-container / systemd-nspawn
-    bubblewrap.nix     # bubblewrap (bwrap) lightweight sandbox
-  profiles/            # Pre-built sandbox profiles (e.g. claude-code + chromium)
+flake.nix              # Entry point: packages (default, no-network, container, container-no-network), devShell
+nix/backends/
+  bubblewrap.nix       # bwrap sandbox — unprivileged, user namespaces
+  container.nix        # systemd-nspawn container — requires root, full namespace isolation
 ```
 
-Everything is pure Nix — no shell/Python wrapper scripts. The flake exposes packages and NixOS modules that configure and launch sandboxed environments.
+Both backends are `callPackage`-able functions producing `writeShellApplication` derivations. They share a common pattern: dynamic bash arrays for optional flags (display, D-Bus, GPU, auth, network).
 
-## Development
+**Bubblewrap** uses `symlinkJoin` to build PATH from packages. **Container** evaluates a NixOS config (`nixosSystem`) to get a system closure (`toplevel`), creates an ephemeral container root, and uses `setpriv` to drop from root to uid 1000.
 
-### Prerequisites
-
-- Nix with flakes enabled (`nix.settings.experimental-features = ["nix-command" "flakes"]`)
-- direnv (optional, `.envrc` auto-loads devShell)
-
-### Common Commands
+## Common Commands
 
 ```bash
-direnv allow                              # Load devShell (after flake.nix changes)
-nix flake check                           # Validate flake outputs and run checks
-nix build                                 # Build default package (bubblewrap sandbox)
-nix build .#no-network                    # Build with network isolation
-nix flake show                            # List all flake outputs
-./result/bin/claude-sandbox <project-dir>           # Run sandboxed Claude Code
-./result/bin/claude-sandbox --shell <project-dir>   # Drop into bash inside sandbox
+nix build                                 # Build default (bubblewrap)
+nix build .#container                     # Build nspawn container
+./result/bin/claude-sandbox <dir>         # Run sandboxed Claude Code
+./result/bin/claude-sandbox --shell <dir> # Shell inside sandbox
+sudo ./result/bin/claude-sandbox-container <dir>         # Container mode
+sudo ./result/bin/claude-sandbox-container --shell <dir> # Container shell
 ```
 
 ## Conventions
 
-- **Pure Nix only**: no shell scripts, Python, or other languages for orchestration. Helper logic goes in `nix/lib/`.
-- **One backend per file** in `nix/backends/`. Each backend exports a NixOS module or a derivation.
-- **Chromium from nixpkgs**: always use `pkgs.chromium` (or `pkgs.ungoogled-chromium`) inside the sandbox — never forward host browser.
-- **Profiles** in `nix/profiles/` compose a backend + packages (claude-code, chromium, etc.) into a ready-to-run sandbox config.
-- **claude-code is unfree**: `flake.nix` sets `config.allowUnfree = true`. The package comes from nixpkgs (`pkgs.claude-code`).
-- **Backends are callPackage-able**: each backend file in `nix/backends/` is a function taking `{ pkgs, ... }` args, called via `pkgs.callPackage` in `flake.nix`.
+- **Pure Nix only**: no shell/Python wrappers for orchestration
+- **One backend per file** in `nix/backends/`
+- **Chromium from nixpkgs**: always `pkgs.chromium` inside the sandbox
+- **claude-code is unfree**: `config.allowUnfree = true` in flake.nix
+- **Backends are callPackage-able**: called via `pkgs.callPackage` in flake.nix
 
 ## Skill Files
 

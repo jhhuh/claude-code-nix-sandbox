@@ -128,6 +128,8 @@ writeShellApplication {
     dbus_args=()
     if [[ -S "$runtime_dir/bus" ]]; then
       dbus_args+=(--bind-ro="$runtime_dir/bus":/run/user/1000/bus)
+      dbus_args+=(--setenv=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus)
+      dbus_args+=(--setenv=XDG_RUNTIME_DIR=/run/user/1000)
     fi
     if [[ -S /run/dbus/system_bus_socket ]]; then
       dbus_args+=(--bind-ro=/run/dbus/system_bus_socket)
@@ -174,6 +176,15 @@ writeShellApplication {
       api_key_args+=(--setenv=ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY")
     fi
 
+    # Host config forwarding (DNS, TLS, fonts, timezone)
+    host_cfg_args=()
+    for f in /etc/resolv.conf /etc/hosts /etc/ssl /etc/ca-certificates /etc/pki \
+             /etc/fonts /etc/localtime /etc/zoneinfo; do
+      if [[ -e "$f" ]]; then
+        host_cfg_args+=("--bind-ro=$f")
+      fi
+    done
+
     exec systemd-nspawn \
       --quiet \
       --ephemeral \
@@ -182,6 +193,7 @@ writeShellApplication {
       --bind-ro=/nix/store \
       --bind-ro=/nix/var/nix/db \
       --bind="$project_dir":/project \
+      "''${host_cfg_args[@]}" \
       "''${display_args[@]}" \
       "''${xauth_args[@]}" \
       "''${wayland_args[@]}" \
