@@ -54,3 +54,15 @@
 - `claude-remote help` (and `--help`, `-h`, no args) exited with "CLAUDE_REMOTE_HOST is not set" because the host check ran before command dispatch.
 - Fix: check if the command is help-like before requiring the host env var.
 
+## 2026-02-17: Flake check and cleanup
+
+**CLAUDE.md updated (543cf91):**
+- Documented full architecture tree including manager, CLI, NixOS module.
+- Added manager commands to Common Commands section.
+- Added manager-specific conventions (Rust/Axum stack, vendored htmx, SSH-based CLI).
+
+**VM shellcheck fix (96b0280):**
+- `nix flake check` failed on vm.nix: SC2155 warning on `export NIX_DISK_IMAGE="$(mktemp ...)"`.
+- Pre-existing issue, not caused by manager changes. Fixed by splitting declare and assign.
+- All 8 packages + 2 NixOS modules now pass `nix flake check`.
+
