@@ -100,3 +100,4 @@ Non-obvious patterns discovered during development — read before modifying rel
 - `artifacts/skills/ssh-agent-forwarding-into-sandboxes.md — socket + env var + openssh + git config forwarding`
 - `artifacts/skills/sudo-aware-uid-detection-for-containers.md — dynamic UID/GID under sudo for file ownership`
 - `artifacts/skills/ssh-remote-cli-printf-q-escaping.md — printf '%q' for SSH argument escaping`
+- `artifacts/skills/nix-writeShellApplication-escaping-and-shellcheck.md — `''${` escaping, SC2155/SC2029, ShellCheck-as-error in writeShellApplication`
