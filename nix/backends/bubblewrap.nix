@@ -137,6 +137,24 @@ writeShellApplication {
       claude_auth_args+=(--bind "$host_claude_dir" "$sandbox_home/.claude")
     fi
 
+    # Conditional env vars (only set when non-empty on host)
+    env_args=()
+    if [[ -n "''${DISPLAY:-}" ]]; then
+      env_args+=(--setenv DISPLAY "$DISPLAY")
+    fi
+    if [[ -n "''${WAYLAND_DISPLAY:-}" ]]; then
+      env_args+=(--setenv WAYLAND_DISPLAY "$WAYLAND_DISPLAY")
+    fi
+    if [[ -n "''${XAUTHORITY:-}" ]]; then
+      env_args+=(--setenv XAUTHORITY "$XAUTHORITY")
+    fi
+    if [[ -n "''${DBUS_SESSION_BUS_ADDRESS:-}" ]]; then
+      env_args+=(--setenv DBUS_SESSION_BUS_ADDRESS "$DBUS_SESSION_BUS_ADDRESS")
+    fi
+    if [[ -n "''${ANTHROPIC_API_KEY:-}" ]]; then
+      env_args+=(--setenv ANTHROPIC_API_KEY "$ANTHROPIC_API_KEY")
+    fi
+
     # Select entrypoint
     if [[ "$shell_mode" == true ]]; then
       entrypoint=(bash)
@@ -181,14 +199,10 @@ writeShellApplication {
       "''${xauth_args[@]}" \
       "''${wayland_args[@]}" \
       "''${dbus_args[@]}" \
+      "''${env_args[@]}" \
       --setenv HOME "$sandbox_home" \
       --setenv PATH "${sandboxPath}/bin" \
-      --setenv DISPLAY "''${DISPLAY:-}" \
-      --setenv WAYLAND_DISPLAY "''${WAYLAND_DISPLAY:-}" \
-      --setenv XAUTHORITY "''${XAUTHORITY:-}" \
-      --setenv DBUS_SESSION_BUS_ADDRESS "''${DBUS_SESSION_BUS_ADDRESS:-}" \
       --setenv TERM "''${TERM:-xterm-256color}" \
-      --setenv ANTHROPIC_API_KEY "''${ANTHROPIC_API_KEY:-}" \
       --setenv NIX_REMOTE daemon \
       --setenv XDG_RUNTIME_DIR "''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" \
       --setenv XDG_CONFIG_HOME "$sandbox_home/.config" \
