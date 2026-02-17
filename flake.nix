@@ -56,10 +56,17 @@
               modules = args.imports;
             });
           };
+
+          # Remote sandbox manager (Rust/Axum web dashboard)
+          manager = pkgs.callPackage ./nix/manager/package.nix { };
+
+          # Local CLI for managing remote sandboxes via SSH
+          cli = pkgs.callPackage ./scripts/claude-remote.nix { };
         });
 
-      # NixOS module for declarative sandbox configuration
+      # NixOS modules
       nixosModules.default = ./nix/modules/sandbox.nix;
+      nixosModules.manager = ./nix/modules/manager.nix;
 
       # Checks: build all packages (used by CI / nix flake check)
       checks = forAllSystems (system: self.packages.${system});
@@ -72,6 +79,17 @@
               nixd           # Nix LSP
               nil            # Alternative Nix LSP
               nixpkgs-fmt    # Nix formatter
+            ];
+          };
+
+          # Rust dev shell for the manager
+          manager = pkgs.mkShell {
+            packages = with pkgs; [
+              rustc
+              cargo
+              rust-analyzer
+              pkg-config
+              openssl
             ];
           };
         });

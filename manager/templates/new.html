@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}New Sandbox - Claude Sandbox Manager{% endblock %}
+
+{% block content %}
+<h1>Create Sandbox</h1>
+<form method="post" action="/new" class="form">
+    <div class="form-group">
+        <label for="name">Name</label>
+        <input type="text" id="name" name="name" required placeholder="my-project">
+    </div>
+    <div class="form-group">
+        <label for="backend">Backend</label>
+        <select id="backend" name="backend">
+            <option value="bubblewrap">Bubblewrap (unprivileged)</option>
+            <option value="container">Container (systemd-nspawn, requires sudo)</option>
+            <option value="vm">VM (QEMU, strongest isolation)</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="project_dir">Project Directory</label>
+        <input type="text" id="project_dir" name="project_dir" required placeholder="/home/user/project">
+    </div>
+    <div class="form-group">
+        <label class="checkbox-label">
+            <input type="hidden" name="network" value="false">
+            <input type="checkbox" name="network" value="true" checked>
+            Allow network access
+        </label>
+    </div>
+    <button type="submit" class="btn btn-primary">Create</button>
+</form>
+{% endblock %}

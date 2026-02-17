@@ -1,0 +1,7 @@
+{% if has_screenshot %}
+<img src="/api/sandboxes/{{ sandbox_id }}/screenshot?t={{ sandbox_id }}"
+     alt="Screenshot" class="screenshot"
+     onerror="this.alt='No screenshot available'">
+{% else %}
+<p class="muted">No screenshot available</p>
+{% endif %}

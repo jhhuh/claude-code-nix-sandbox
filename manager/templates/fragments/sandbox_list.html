@@ -1,0 +1,25 @@
+{% if sandboxes.is_empty() %}
+<p class="empty-state">No sandboxes running. <a href="/new">Create one</a>.</p>
+{% else %}
+<div class="sandbox-grid">
+    {% for sandbox in sandboxes %}
+    <div class="sandbox-card sandbox-{{ sandbox.status }}">
+        <div class="sandbox-card-header">
+            <h3><a href="/sandboxes/{{ sandbox.id }}">{{ sandbox.name }}</a></h3>
+            <span class="badge badge-{{ sandbox.status }}">{{ sandbox.status }}</span>
+        </div>
+        <div class="sandbox-card-body">
+            <p>{{ sandbox.backend }} &middot; <code>{{ sandbox.short_id() }}</code></p>
+            <p class="muted">{{ sandbox.project_dir }}</p>
+            {% if sandbox.display_num.is_some() %}
+            <div class="mini-screenshot">
+                <img src="/api/sandboxes/{{ sandbox.id }}/screenshot"
+                     alt="Screenshot" loading="lazy"
+                     onerror="this.style.display='none'">
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}

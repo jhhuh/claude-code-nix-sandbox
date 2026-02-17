@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Claude Sandbox Manager{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <div class="dashboard-main">
+        <div class="section-header">
+            <h1>Sandboxes</h1>
+            <a href="/new" class="btn btn-primary">New Sandbox</a>
+        </div>
+        <div id="sandbox-list" hx-get="/fragments/sandbox-list" hx-trigger="every 5s">
+            {% include "fragments/sandbox_list.html" %}
+        </div>
+    </div>
+    <aside class="dashboard-sidebar">
+        <h2>System</h2>
+        <div id="system-metrics" hx-get="/fragments/system-metrics" hx-trigger="every 3s">
+            <p class="muted">Loading metrics...</p>
+        </div>
+    </aside>
+</div>
+{% endblock %}
