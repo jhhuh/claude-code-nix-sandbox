@@ -95,6 +95,11 @@ For NixOS users, a declarative module is available:
             container.enable = true; # Also install container backend
             vm.enable = true;        # Also install VM backend
             network = true;          # Allow network access (default)
+            # Extra packages inside bubblewrap sandbox:
+            # bubblewrap.extraPackages = with pkgs; [ python3 nodejs ];
+            # Extra NixOS modules for container/VM:
+            # container.extraModules = [{ environment.systemPackages = with pkgs; [ python3 ]; }];
+            # vm.extraModules = [{ environment.systemPackages = with pkgs; [ python3 ]; }];
           };
         }
       ];

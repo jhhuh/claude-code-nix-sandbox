@@ -44,6 +44,24 @@ in
       default = false;
       description = "Install the QEMU VM sandbox.";
     };
+
+    bubblewrap.extraPackages = lib.mkOption {
+      type = lib.types.listOf lib.types.package;
+      default = [ ];
+      description = "Extra packages available inside the bubblewrap sandbox.";
+    };
+
+    container.extraModules = lib.mkOption {
+      type = lib.types.listOf lib.types.anything;
+      default = [ ];
+      description = "Extra NixOS modules for the systemd-nspawn container.";
+    };
+
+    vm.extraModules = lib.mkOption {
+      type = lib.types.listOf lib.types.anything;
+      default = [ ];
+      description = "Extra NixOS modules for the QEMU VM.";
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -53,16 +71,19 @@ in
       lib.optional cfg.bubblewrap.enable
         (pkgs.callPackage ../../nix/backends/bubblewrap.nix {
           inherit (cfg) network;
+          inherit (cfg.bubblewrap) extraPackages;
         })
       ++ lib.optional cfg.container.enable
         (pkgs.callPackage ../../nix/backends/container.nix {
           inherit nixos;
           inherit (cfg) network;
+          inherit (cfg.container) extraModules;
         })
       ++ lib.optional cfg.vm.enable
         (pkgs.callPackage ../../nix/backends/vm.nix {
           inherit nixos;
           inherit (cfg) network;
+          inherit (cfg.vm) extraModules;
         });
 
     # Bubblewrap requires unprivileged user namespaces
