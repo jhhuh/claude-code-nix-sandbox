@@ -149,6 +149,8 @@ writeShellApplication {
       --dev-bind /dev/shm /dev/shm \
       "''${dri_args[@]}" \
       --ro-bind /nix/store /nix/store \
+      --ro-bind-try /nix/var/nix/db /nix/var/nix/db \
+      --ro-bind-try /nix/var/nix/daemon-socket /nix/var/nix/daemon-socket \
       --ro-bind-try /run/current-system/sw /run/current-system/sw \
       --tmpfs /tmp \
       --tmpfs /run \
