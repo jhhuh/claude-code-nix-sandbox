@@ -155,6 +155,10 @@ writeShellApplication {
     if [[ -f "$HOME/.gitconfig" ]]; then
       git_args+=(--ro-bind "$HOME/.gitconfig" "$sandbox_home/.gitconfig")
     fi
+    if [[ -d "$HOME/.config/git" ]]; then
+      git_args+=(--dir "$sandbox_home/.config/git")
+      git_args+=(--ro-bind "$HOME/.config/git" "$sandbox_home/.config/git")
+    fi
     if [[ -d "$HOME/.ssh" ]]; then
       git_args+=(--ro-bind "$HOME/.ssh" "$sandbox_home/.ssh")
     fi

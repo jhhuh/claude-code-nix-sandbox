@@ -170,6 +170,10 @@ writeShellApplication {
     if [[ -f "$real_home/.gitconfig" ]]; then
       git_args+=(--bind-ro="$real_home/.gitconfig":/home/sandbox/.gitconfig)
     fi
+    if [[ -d "$real_home/.config/git" ]]; then
+      mkdir -p "$container_root/home/sandbox/.config/git"
+      git_args+=(--bind-ro="$real_home/.config/git":/home/sandbox/.config/git)
+    fi
     if [[ -d "$real_home/.ssh" ]]; then
       git_args+=(--bind-ro="$real_home/.ssh":/home/sandbox/.ssh)
     fi

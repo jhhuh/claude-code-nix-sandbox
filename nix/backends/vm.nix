@@ -64,6 +64,13 @@ let
           noCheck = true;
         };
 
+        fileSystems."/home/sandbox/.config/git" = {
+          device = "git_config_dir";
+          fsType = "9p";
+          options = [ "trans=virtio" "version=9p2000.L" "ro" "nofail" ];
+          noCheck = true;
+        };
+
         # SSH keys via 9p (nofail: dir may not exist on host)
         fileSystems."/home/sandbox/.ssh" = {
           device = "ssh_dir";
@@ -201,6 +208,9 @@ writeShellApplication {
 
     if [[ -f "$HOME/.gitconfig" ]]; then
       qemu_extra+=(-virtfs "local,path=$HOME/.gitconfig,mount_tag=git_config,security_model=none,id=git_config,readonly=on")
+    fi
+    if [[ -d "$HOME/.config/git" ]]; then
+      qemu_extra+=(-virtfs "local,path=$HOME/.config/git,mount_tag=git_config_dir,security_model=none,id=git_config_dir,readonly=on")
     fi
     if [[ -d "$HOME/.ssh" ]]; then
       qemu_extra+=(-virtfs "local,path=$HOME/.ssh,mount_tag=ssh_dir,security_model=none,id=ssh_dir,readonly=on")
