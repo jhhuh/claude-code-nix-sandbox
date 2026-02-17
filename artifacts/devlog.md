@@ -43,3 +43,9 @@ Design: claude-code runs on serial console (user's terminal), Chromium renders i
 
 Tested: Chromium headless DOM dump works, uid=1000, version confirmed.
 
+## 2026-02-17 — NixOS module + flake checks
+
+Added `nix/modules/sandbox.nix` — declarative NixOS module with `services.claude-sandbox` options (enable, network, bubblewrap/container/vm toggles). Sets `security.unprivilegedUsernsClone = true` for bubblewrap.
+
+Added `checks` output to flake.nix referencing all packages for CI validation.
+
