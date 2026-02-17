@@ -31,7 +31,14 @@ let
           graphics = true;
           diskImage = "/tmp/claude-sandbox-vm.qcow2";
           vlans = lib.mkIf (!network) [ ];
+          qemu.options = [
+            # Serial console on host stdio (for claude-code interaction)
+            "-serial" "stdio"
+          ];
         };
+
+        # Serial console must be last so Linux makes it /dev/console
+        virtualisation.qemu.consoles = [ "tty0" "ttyS0,115200n8" ];
 
         # Project directory via 9p (host path passed at runtime via QEMU_OPTS)
         fileSystems."/project" = {
@@ -70,44 +77,26 @@ let
           defaultSession = "none+openbox";
         };
 
-        # Disable serial getty — we use our own service on ttyS0
-        systemd.services."serial-getty@ttyS0".enable = false;
+        # Auto-login sandbox user on serial console (ttyS0)
+        services.getty.autologinUser = "sandbox";
 
-        # Claude Code runs on the serial console (user's terminal)
-        systemd.services.claude-entrypoint = {
-          description = "Claude Code";
-          after = [ "display-manager.service" "mnt-meta.mount" ];
-          requires = [ "mnt-meta.mount" ];
-          wantedBy = [ "multi-user.target" ];
-          serviceConfig = {
-            Type = "simple";
-            User = "sandbox";
-            Group = "users";
-            WorkingDirectory = "/project";
-            StandardInput = "tty";
-            StandardOutput = "tty";
-            StandardError = "tty";
-            TTYPath = "/dev/ttyS0";
-            TTYReset = true;
-            TTYVHangup = true;
-          };
-          script = ''
+        # Set up environment for sandbox user's login shell
+        environment.interactiveShellInit = ''
+          if [[ "$(tty)" == /dev/ttyS0 ]]; then
             export DISPLAY=:0
-            export HOME=/home/sandbox
-            export TERM=xterm-256color
-
+            cd /project 2>/dev/null || true
             if [[ -f /mnt/meta/apikey ]]; then
               export ANTHROPIC_API_KEY=$(cat /mnt/meta/apikey)
             fi
-
-            entrypoint="bash"
+            # Run entrypoint (exec replaces shell in non-interactive mode)
             if [[ -f /mnt/meta/entrypoint ]]; then
               entrypoint=$(cat /mnt/meta/entrypoint)
+              if [[ "$entrypoint" != "bash" ]]; then
+                exec $entrypoint
+              fi
             fi
-
-            exec $entrypoint
-          '';
-        };
+          fi
+        '';
 
         users.users.sandbox = {
           isNormalUser = true;
