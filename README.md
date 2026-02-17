@@ -19,11 +19,14 @@ nix run github:jhhuh/claude-code-nix-sandbox -- --shell /path/to/project
 ### systemd-nspawn container (requires sudo)
 
 ```bash
+# Build the container package
+nix build github:jhhuh/claude-code-nix-sandbox#container
+
 # Run Claude Code in an nspawn container
-nix run github:jhhuh/claude-code-nix-sandbox#container -- sudo /path/to/project
+sudo ./result/bin/claude-sandbox-container /path/to/project
 
 # Shell mode
-nix run github:jhhuh/claude-code-nix-sandbox#container -- sudo --shell /path/to/project
+sudo ./result/bin/claude-sandbox-container --shell /path/to/project
 ```
 
 Requires `ANTHROPIC_API_KEY` in your environment, or an existing `~/.claude` login (auto-mounted).
