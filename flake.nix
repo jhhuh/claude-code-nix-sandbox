@@ -58,6 +58,9 @@
           };
         });
 
+      # NixOS module for declarative sandbox configuration
+      nixosModules.default = ./nix/modules/sandbox.nix;
+
       # Checks: build all packages (used by CI / nix flake check)
       checks = forAllSystems (system: self.packages.${system});
 
