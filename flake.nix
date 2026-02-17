@@ -24,6 +24,22 @@
           no-network = pkgs.callPackage ./nix/backends/bubblewrap.nix {
             network = false;
           };
+
+          # systemd-nspawn container backend (requires sudo)
+          container = pkgs.callPackage ./nix/backends/container.nix {
+            nixos = args: (nixpkgs.lib.nixosSystem {
+              inherit system;
+              modules = args.imports;
+            });
+          };
+
+          container-no-network = pkgs.callPackage ./nix/backends/container.nix {
+            network = false;
+            nixos = args: (nixpkgs.lib.nixosSystem {
+              inherit system;
+              modules = args.imports;
+            });
+          };
         });
 
       devShells = forAllSystems (system:
