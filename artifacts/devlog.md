@@ -99,3 +99,15 @@ Verified: git config, SSH keys, locale, nix all work correctly inside bubblewrap
 
 ShellCheck caught unquoted `$real_uid` inside array assignments — all instances quoted to pass `writeShellApplication` validation.
 
+## 2026-02-17 — Polish and completeness
+
+**openssh**: Added `openssh` to all three backends' package lists. Git SSH transport (`git push/pull` over SSH) was silently failing because `ssh` wasn't on PATH inside the sandbox.
+
+**CI improvement**: Split GitHub Actions into two jobs — `build` (matrix: default, no-network) actually builds the bubblewrap variants; `eval` evaluates all packages and the NixOS module without full build. Container/VM packages build entire NixOS systems and are too expensive for CI free tier.
+
+**CLI UX**: Added `--help`/`-h` flag to all three backends with consistent usage messages.
+
+**NixOS module**: Added `bubblewrap.extraPackages`, `container.extraModules`, and `vm.extraModules` options to match the customization interface available via direct `callPackage`. README updated with commented examples.
+
+**Documentation**: README updated with git/SSH/nix/locale forwarding details, `extraPackages`/`extraModules` customization section, NixOS module examples.
+
