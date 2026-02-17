@@ -164,6 +164,20 @@ writeShellApplication {
       claude_auth_args+=(--bind="$host_claude_dir":/home/sandbox/.claude)
     fi
 
+    # Git and SSH forwarding (read-only)
+    git_args=()
+    if [[ -f "$real_home/.gitconfig" ]]; then
+      git_args+=(--bind-ro="$real_home/.gitconfig":/home/sandbox/.gitconfig)
+    fi
+    if [[ -d "$real_home/.ssh" ]]; then
+      git_args+=(--bind-ro="$real_home/.ssh":/home/sandbox/.ssh)
+    fi
+    ssh_agent_args=()
+    if [[ -n "''${SSH_AUTH_SOCK:-}" ]] && [[ -e "$SSH_AUTH_SOCK" ]]; then
+      ssh_agent_args+=(--bind-ro="$SSH_AUTH_SOCK":/run/user/1000/ssh-agent.sock)
+      ssh_agent_args+=(--setenv=SSH_AUTH_SOCK=/run/user/1000/ssh-agent.sock)
+    fi
+
     # Network
     network_args=()
     ${lib.optionalString (!network) ''network_args+=(--private-network)''}
@@ -212,6 +226,8 @@ writeShellApplication {
       "''${gpu_args[@]}" \
       "''${audio_args[@]}" \
       "''${claude_auth_args[@]}" \
+      "''${git_args[@]}" \
+      "''${ssh_agent_args[@]}" \
       "''${network_args[@]}" \
       "''${api_key_args[@]}" \
       "''${entrypoint_args[@]}" \
