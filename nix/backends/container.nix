@@ -34,34 +34,8 @@ let
           git
           coreutils
           bash
+          util-linux  # setpriv for privilege dropping
         ];
-
-        users.users.sandbox = {
-          isNormalUser = true;
-          home = "/home/sandbox";
-          uid = 1000;
-        };
-
-        # Auto-login as sandbox user and run the entrypoint
-        systemd.services.claude-entrypoint = {
-          description = "Claude Code Entrypoint";
-          after = [ "multi-user.target" ];
-          wantedBy = [ "multi-user.target" ];
-          serviceConfig = {
-            Type = "oneshot";
-            RemainAfterExit = true;
-            User = "sandbox";
-            WorkingDirectory = "/project";
-            StandardInput = "tty";
-            StandardOutput = "tty";
-            StandardError = "tty";
-            TTYPath = "/dev/console";
-          };
-          # The actual command is overridden at runtime via ENTRYPOINT env var
-          script = ''
-            exec ''${ENTRYPOINT:-/bin/sh}
-          '';
-        };
 
         system.stateVersion = "24.11";
       })
@@ -109,6 +83,17 @@ writeShellApplication {
     # Stub files required by nspawn
     touch "$container_root/etc/os-release"
     touch "$container_root/etc/machine-id"
+
+    # Create sandbox user (uid 1000) so we can drop privileges
+    echo "root:x:0:0:root:/root:/bin/bash" > "$container_root/etc/passwd"
+    echo "sandbox:x:1000:1000:sandbox:/home/sandbox:/bin/bash" >> "$container_root/etc/passwd"
+    echo "root:x:0:" > "$container_root/etc/group"
+    echo "sandbox:x:1000:" >> "$container_root/etc/group"
+    chown -R 1000:1000 "$container_root/home/sandbox"
+
+    # NSS config for username resolution
+    echo "passwd: files" > "$container_root/etc/nsswitch.conf"
+    echo "group: files" >> "$container_root/etc/nsswitch.conf"
 
     # Display forwarding args
     display_args=()
@@ -211,6 +196,6 @@ writeShellApplication {
       --setenv=PATH="${toplevel}/sw/bin" \
       --setenv=TERM="''${TERM:-xterm-256color}" \
       --as-pid2 \
-      -- "${toplevel}/sw/bin/bash" -c "cd /project && exec \$ENTRYPOINT"
+      -- "${toplevel}/sw/bin/bash" -c "chown 1000:1000 /project && exec ${toplevel}/sw/bin/setpriv --reuid=1000 --regid=1000 --init-groups -- ${toplevel}/sw/bin/bash -c 'cd /project && exec \$ENTRYPOINT'"
   '';
 }
