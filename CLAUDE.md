@@ -81,7 +81,7 @@ claude-remote ui                          # SSH tunnel for web dashboard
 - **Pure Nix only**: no shell/Python wrappers for orchestration
 - **One backend per file** in `nix/backends/`
 - **Chromium from nixpkgs**: always `pkgs.chromium` inside the sandbox
-- **claude-code is unfree**: `config.allowUnfree = true` in flake.nix
+- **claude-code from `sadjow/claude-code-nix`**: flake input with overlay applied to `pkgsFor` and all `nixosSystem` calls; backends reference `pkgs.claude-code` which resolves through the overlay
 - **Backends are callPackage-able**: called via `pkgs.callPackage` in flake.nix
 - **NixOS modules**: `sandbox.nix` as `nixosModules.default`, `manager.nix` as `nixosModules.manager`
 - **Manager is Rust/Axum**: axum 0.7, askama 0.12, tower-http 0.5, sysinfo for metrics
