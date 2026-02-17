@@ -122,8 +122,12 @@ writeShellApplication {
     real_user="''${SUDO_USER:-''${USER}}"
     xauth_file="''${XAUTHORITY:-$real_home/.Xauthority}"
     if [[ -e "$xauth_file" ]]; then
-      xauth_args+=(--bind-ro="$xauth_file":/home/sandbox/.Xauthority)
+      # Copy Xauthority into the container root (bind-mount gets hidden by --ephemeral overlay)
+      cp "$xauth_file" "$container_root/home/sandbox/.Xauthority"
+      chmod 644 "$container_root/home/sandbox/.Xauthority"
       xauth_args+=(--setenv=XAUTHORITY=/home/sandbox/.Xauthority)
+      # Set container hostname to match the Xauthority cookie (keyed by hostname)
+      xauth_args+=("--hostname=$(hostname)")
     fi
 
     wayland_args=()
@@ -167,12 +171,16 @@ writeShellApplication {
     network_args=()
     ${lib.optionalString (!network) ''network_args+=(--private-network)''}
 
-    # Select entrypoint
+    # Select entrypoint and console mode
+    console_args=()
     if [[ "$shell_mode" == true ]]; then
       entrypoint_args=(--setenv=ENTRYPOINT=bash)
     else
       claude_args=("$@")
       entrypoint_args=(--setenv=ENTRYPOINT="claude ''${claude_args[*]}")
+      # Use pipe console for non-interactive commands (e.g. --version)
+      # so stdin/stdout pass through without PTY allocation
+      console_args+=(--console=pipe)
     fi
 
     # API key
@@ -198,7 +206,9 @@ writeShellApplication {
       "''${network_args[@]}" \
       "''${api_key_args[@]}" \
       "''${entrypoint_args[@]}" \
+      "''${console_args[@]}" \
       --setenv=HOME=/home/sandbox \
+      --setenv=PATH="${toplevel}/sw/bin" \
       --setenv=TERM="''${TERM:-xterm-256color}" \
       --as-pid2 \
       -- "${toplevel}/sw/bin/bash" -c "cd /project && exec \$ENTRYPOINT"
