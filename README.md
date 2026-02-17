@@ -50,12 +50,15 @@ Requires `ANTHROPIC_API_KEY` in your environment, or an existing `~/.claude` log
 |---|---|---|---|
 | Project directory | Read-write (bind-mount) | Read-write (bind-mount) | Read-write (9p) |
 | `~/.claude` | Read-write (bind-mount) | Read-write (bind-mount) | Read-write (9p) |
+| `~/.gitconfig`, `~/.ssh` | Read-only (bind-mount) | Read-only (bind-mount) | Read-only (9p) |
 | `/nix/store` | Read-only | Read-only | Shared from host |
 | `/home` | Isolated (tmpfs) | Isolated | Separate filesystem |
 | Network | Shared by default | Shared by default | NAT by default |
 | Display | Host X11/Wayland | Host X11/Wayland | QEMU window (Xorg) |
+| Audio | PipeWire/PulseAudio | PipeWire/PulseAudio | Isolated |
 | GPU (DRI) | Forwarded | Forwarded | Virtio VGA |
 | D-Bus | Forwarded | Forwarded | Isolated |
+| SSH agent | Forwarded | Forwarded | Isolated |
 | Kernel | Shared | Shared | Separate |
 
 ## Packages

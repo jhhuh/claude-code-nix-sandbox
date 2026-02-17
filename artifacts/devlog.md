@@ -62,3 +62,22 @@ Added `/nix/var/nix/daemon-socket` bind-mount to bubblewrap and container backen
 **Fix**: Set `NIX_REMOTE=daemon` env var to force daemon mode. Also added `nix` package to sandbox PATH. See skill file: `nix-daemon-socket-forwarding-in-sandboxes.md`.
 
 Verified: `nix eval nixpkgs#hello.name` returns `"hello-2.12.1"` inside bubblewrap sandbox.
+
+## 2026-02-17 — Bug fixes and feature audit
+
+Ran a systematic comparison of all three backends. Found and fixed:
+
+**Bugs fixed:**
+- Container nix daemon socket was bound read-only (`--bind-ro`), preventing `nix` from connecting. Changed to `--bind`.
+- Bubblewrap unconditionally set empty env vars (DISPLAY, WAYLAND_DISPLAY, XAUTHORITY, DBUS_SESSION_BUS_ADDRESS, ANTHROPIC_API_KEY). Made conditional — only set when non-empty on host.
+- Container and VM entrypoint quoting: `exec $ENTRYPOINT` word-split on spaces. Fixed with `printf '%q'` + `eval exec`.
+- VM hardcoded disk image path `/tmp/claude-sandbox-vm.qcow2` caused collisions between concurrent runs. Now uses `mktemp` + `NIX_DISK_IMAGE` env var.
+- Container pre-created `.claude` dir even when host dir was absent. Removed from unconditional `mkdir`.
+
+**Consistency fixes:**
+- Added `nix` package to VM's `environment.systemPackages` (was missing, unlike bwrap/container).
+
+**New features:**
+- PipeWire and PulseAudio audio forwarding for bubblewrap and container. Forwards `pipewire-0` and `pulse/native` sockets.
+- Git config (`~/.gitconfig`) and SSH key (`~/.ssh`) forwarding (read-only) to all three backends. SSH agent socket forwarded via `SSH_AUTH_SOCK`.
+- GitHub Actions CI: `.github/workflows/ci.yml` runs `nix flake check` on push/PR.
