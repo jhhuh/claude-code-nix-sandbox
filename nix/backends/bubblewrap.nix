@@ -79,6 +79,7 @@ writeShellApplication {
 
     # D-Bus forwarding (needed by Chromium)
     dbus_args=()
+    # Session bus via DBUS_SESSION_BUS_ADDRESS
     if [[ -n "''${DBUS_SESSION_BUS_ADDRESS:-}" ]]; then
       dbus_path=""
       if [[ "$DBUS_SESSION_BUS_ADDRESS" == unix:path=* ]]; then
@@ -89,6 +90,14 @@ writeShellApplication {
         dbus_args+=(--ro-bind "$dbus_path" "$dbus_path")
       fi
     fi
+    # XDG_RUNTIME_DIR/bus (user session bus fallback)
+    if [[ -n "''${XDG_RUNTIME_DIR:-}" ]] && [[ -S "$XDG_RUNTIME_DIR/bus" ]]; then
+      dbus_args+=(--ro-bind "$XDG_RUNTIME_DIR/bus" "$XDG_RUNTIME_DIR/bus")
+    fi
+    # System bus
+    if [[ -S /run/dbus/system_bus_socket ]]; then
+      dbus_args+=(--ro-bind /run/dbus/system_bus_socket /run/dbus/system_bus_socket)
+    fi
 
     # DRI (GPU) forwarding for Chromium hardware acceleration
     dri_args=()
@@ -96,8 +105,20 @@ writeShellApplication {
       dri_args+=(--dev-bind /dev/dri /dev/dri)
     fi
 
+    # OpenGL/Vulkan driver forwarding (NixOS puts drivers in /run/opengl-driver)
+    gpu_args=()
+    if [[ -d /run/opengl-driver ]]; then
+      gpu_args+=(--ro-bind /run/opengl-driver /run/opengl-driver)
+    fi
+
     # Determine sandbox home directory
     sandbox_home="/home/sandbox"
+
+    # Prepare XDG_RUNTIME_DIR bind args (needs --dir before bind since /run is tmpfs)
+    xdg_runtime_args=()
+    if [[ -n "''${XDG_RUNTIME_DIR:-}" ]]; then
+      xdg_runtime_args+=(--dir "$XDG_RUNTIME_DIR")
+    fi
 
     exec bwrap \
       --die-with-parent \
@@ -106,9 +127,12 @@ writeShellApplication {
       --dev-bind /dev/shm /dev/shm \
       "''${dri_args[@]}" \
       --ro-bind /nix/store /nix/store \
-      --ro-bind /run/current-system/sw /run/current-system/sw \
+      --ro-bind-try /run/current-system/sw /run/current-system/sw \
       --tmpfs /tmp \
       --tmpfs /run \
+      "''${xdg_runtime_args[@]}" \
+      --dir /run/dbus \
+      "''${gpu_args[@]}" \
       --tmpfs /home \
       --dir "$sandbox_home" \
       --dir "$sandbox_home/.config" \
