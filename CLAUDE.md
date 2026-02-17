@@ -46,6 +46,7 @@ sudo ./result/bin/claude-sandbox-container --shell <dir> # Container shell
 - **Backends are callPackage-able**: called via `pkgs.callPackage` in flake.nix
 - **NixOS module** in `nix/modules/sandbox.nix`, exposed as `nixosModules.default`
 
+
 ## Skill Files
 
 Non-obvious patterns discovered during development — read before modifying related code:
