@@ -45,3 +45,11 @@ sudo ./result/bin/claude-sandbox-container --shell <dir> # Container shell
 - **claude-code is unfree**: `config.allowUnfree = true` in flake.nix
 - **Backends are callPackage-able**: called via `pkgs.callPackage` in flake.nix
 - **NixOS module** in `nix/modules/sandbox.nix`, exposed as `nixosModules.default`
+
+## Skill Files
+
+Non-obvious patterns discovered during development — read before modifying related code:
+
+- `artifacts/skills/nspawn-privilege-drop-without-pam.md` — why `setpriv` instead of `su`/`runuser` in the container backend
+- `artifacts/skills/nixos-qemu-vm-serial-console-setup.md` — console order, getty autologin, and tty guard for the VM backend
+- `artifacts/skills/nix-daemon-socket-forwarding-in-sandboxes.md` — rw socket bind + `NIX_REMOTE=daemon` for nix inside sandboxes
