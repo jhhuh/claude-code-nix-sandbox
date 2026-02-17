@@ -69,16 +69,103 @@ Git push/pull works inside all sandboxes — `~/.gitconfig`, `~/.config/git/`, `
 
 ## Packages
 
-| Package | Backend | Network | Requires |
-|---|---|---|---|
-| `default` | Bubblewrap | Full | User namespaces |
-| `no-network` | Bubblewrap | Isolated | User namespaces |
-| `container` | systemd-nspawn | Full | root (sudo) |
-| `container-no-network` | systemd-nspawn | Isolated | root (sudo) |
-| `vm` | QEMU | NAT | KVM recommended |
-| `vm-no-network` | QEMU | Isolated | KVM recommended |
+| Package | Description | Requires |
+|---|---|---|
+| `default` | Bubblewrap sandbox (network) | User namespaces |
+| `no-network` | Bubblewrap sandbox (isolated) | User namespaces |
+| `container` | systemd-nspawn (network) | root (sudo) |
+| `container-no-network` | systemd-nspawn (isolated) | root (sudo) |
+| `vm` | QEMU VM (NAT) | KVM recommended |
+| `vm-no-network` | QEMU VM (isolated) | KVM recommended |
+| `manager` | Remote sandbox manager daemon | — |
+| `cli` | `claude-remote` CLI | SSH access to server |
 
-## NixOS Module
+## Remote Sandbox Manager
+
+Run sandboxes on a remote server and manage them from your laptop via a web dashboard or CLI.
+
+```
+laptop                              remote server
+  │                                   │
+  │  claude-remote create ...         │ manager daemon (127.0.0.1:3000)
+  │ ─────────────────────────────────>│   ├── starts Xvfb display
+  │                                   │   ├── starts tmux session
+  │  claude-remote attach <id>        │   ├── runs sandbox backend
+  │ ─────────────────────────────────>│   ├── captures screenshots
+  │                                   │   └── collects metrics
+  │  claude-remote ui                 │
+  │  open http://localhost:3000       │ web dashboard (htmx, live refresh)
+  │ ─────────────────────────────────>│
+```
+
+### Running the Manager
+
+```bash
+# Build and run locally
+nix build .#manager
+MANAGER_LISTEN=127.0.0.1:3000 ./result/bin/claude-sandbox-manager
+
+# Or deploy via NixOS module (see below)
+```
+
+The manager listens on `127.0.0.1:3000` by default. Environment variables:
+
+| Variable | Default | Description |
+|---|---|---|
+| `MANAGER_LISTEN` | `127.0.0.1:3000` | Listen address |
+| `MANAGER_STATE_DIR` | `.` | Directory for `state.json` |
+| `MANAGER_STATIC_DIR` | (set by wrapper) | Path to static assets |
+
+### CLI (`claude-remote`)
+
+Available in the devShell or via `nix build .#cli`. All commands run over SSH — no direct HTTP from your laptop.
+
+```bash
+export CLAUDE_REMOTE_HOST=myserver  # required
+export CLAUDE_REMOTE_PORT=3000      # optional, default 3000
+
+claude-remote create my-project bubblewrap /home/user/project
+claude-remote create isolated bubblewrap /tmp/test --no-network
+claude-remote list
+claude-remote attach <id>           # SSH + tmux attach
+claude-remote stop <id>
+claude-remote delete <id>
+claude-remote metrics               # system metrics
+claude-remote metrics <id>          # system + sandbox Claude metrics
+claude-remote ui                    # SSH tunnel, then open http://localhost:3000
+```
+
+### Web Dashboard
+
+The dashboard shows all sandboxes with live screenshots, status badges, and system metrics. Sandbox detail pages show Claude session metrics (tokens, tool uses, message count) and a live screenshot feed.
+
+Auto-refreshes via htmx (no JavaScript build step). Access it by running `claude-remote ui` to set up an SSH tunnel, then open `http://localhost:3000`.
+
+### REST API
+
+All endpoints are also available as JSON:
+
+```bash
+# Create sandbox
+curl -X POST localhost:3000/api/sandboxes \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"test","backend":"bubblewrap","project_dir":"/tmp/test","network":true}'
+
+# List / get / stop / delete
+curl localhost:3000/api/sandboxes
+curl localhost:3000/api/sandboxes/<id>
+curl -X POST localhost:3000/api/sandboxes/<id>/stop
+curl -X DELETE localhost:3000/api/sandboxes/<id>
+
+# Screenshots and metrics
+curl localhost:3000/api/sandboxes/<id>/screenshot -o screenshot.png
+curl localhost:3000/api/sandboxes/<id>/metrics
+curl localhost:3000/api/metrics/system
+```
+
+## NixOS Modules
+
+### Sandbox backends
 
 For NixOS users, a declarative module is available:
 
@@ -102,6 +189,38 @@ For NixOS users, a declarative module is available:
             # Extra NixOS modules for container/VM:
             # container.extraModules = [{ environment.systemPackages = with pkgs; [ python3 ]; }];
             # vm.extraModules = [{ environment.systemPackages = with pkgs; [ python3 ]; }];
+          };
+        }
+      ];
+    };
+  };
+}
+```
+
+### Manager service
+
+Deploy the remote sandbox manager as a systemd service:
+
+```nix
+# flake.nix
+{
+  inputs.claude-sandbox.url = "github:jhhuh/claude-code-nix-sandbox";
+
+  outputs = { nixpkgs, claude-sandbox, ... }: {
+    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
+      modules = [
+        claude-sandbox.nixosModules.manager
+        {
+          services.claude-sandbox-manager = {
+            enable = true;
+            listenAddress = "127.0.0.1:3000";  # default
+            stateDir = "/var/lib/claude-manager";  # default
+            # Put sandbox backends on the manager's PATH:
+            sandboxPackages = [
+              claude-sandbox.packages.x86_64-linux.default
+            ];
+            # Allow passwordless sudo for the container backend:
+            # containerSudoers = true;
           };
         }
       ];
