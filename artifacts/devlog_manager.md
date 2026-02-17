@@ -45,3 +45,12 @@
 - Created sandbox via CLI and curl — tmux session stayed alive, status remained `running`.
 - `tmux attach -t sandbox-<short-id>` connects to the Claude session inside the sandbox.
 
+## 2026-02-17: DevShell and CLI polish
+
+**CLI in devShell (1dd2eb5):**
+- Added `claude-remote` to the default `devShell` so it's available via direnv without `nix run .#cli`.
+
+**Help without CLAUDE_REMOTE_HOST (6d8cf20):**
+- `claude-remote help` (and `--help`, `-h`, no args) exited with "CLAUDE_REMOTE_HOST is not set" because the host check ran before command dispatch.
+- Fix: check if the command is help-like before requiring the host env var.
+
