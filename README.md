@@ -2,6 +2,8 @@
 
 > **Warning:** This project is under active development and should be considered unstable. Features may be incomplete, broken, or change without notice. If you choose to run it, you do so at your own risk. There are no guarantees of correctness, security, or fitness for any particular purpose.
 
+**[Documentation](https://jhhuh.github.io/claude-code-nix-sandbox/)**
+
 Launch sandboxed [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code) sessions with Chromium using Nix.
 
 Claude Code runs inside an isolated sandbox with filesystem isolation, display forwarding, and a Chromium browser — all from nixpkgs. Three backends available with increasing isolation: [bubblewrap](https://github.com/containers/bubblewrap) (unprivileged), [systemd-nspawn](https://www.freedesktop.org/software/systemd/man/latest/systemd-nspawn.html) (root), and QEMU VM (strongest).
