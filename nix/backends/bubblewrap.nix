@@ -150,6 +150,18 @@ writeShellApplication {
       claude_auth_args+=(--bind "$host_claude_dir" "$sandbox_home/.claude")
     fi
 
+    # Git and SSH forwarding (read-only)
+    git_args=()
+    if [[ -f "$HOME/.gitconfig" ]]; then
+      git_args+=(--ro-bind "$HOME/.gitconfig" "$sandbox_home/.gitconfig")
+    fi
+    if [[ -d "$HOME/.ssh" ]]; then
+      git_args+=(--ro-bind "$HOME/.ssh" "$sandbox_home/.ssh")
+    fi
+    if [[ -n "''${SSH_AUTH_SOCK:-}" ]] && [[ -e "$SSH_AUTH_SOCK" ]]; then
+      git_args+=(--ro-bind "$SSH_AUTH_SOCK" "$SSH_AUTH_SOCK")
+    fi
+
     # Conditional env vars (only set when non-empty on host)
     env_args=()
     if [[ -n "''${DISPLAY:-}" ]]; then
@@ -166,6 +178,9 @@ writeShellApplication {
     fi
     if [[ -n "''${ANTHROPIC_API_KEY:-}" ]]; then
       env_args+=(--setenv ANTHROPIC_API_KEY "$ANTHROPIC_API_KEY")
+    fi
+    if [[ -n "''${SSH_AUTH_SOCK:-}" ]]; then
+      env_args+=(--setenv SSH_AUTH_SOCK "$SSH_AUTH_SOCK")
     fi
 
     # Select entrypoint
@@ -194,6 +209,7 @@ writeShellApplication {
       --dir "$sandbox_home" \
       --dir "$sandbox_home/.config" \
       "''${claude_auth_args[@]}" \
+      "''${git_args[@]}" \
       --bind "$project_dir" "$project_dir" \
       --ro-bind-try /etc/resolv.conf /etc/resolv.conf \
       --ro-bind-try /etc/hosts /etc/hosts \

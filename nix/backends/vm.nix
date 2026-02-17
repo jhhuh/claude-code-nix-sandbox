@@ -56,6 +56,22 @@ let
           noCheck = true;
         };
 
+        # Git config via 9p (nofail: may not exist on host)
+        fileSystems."/home/sandbox/.gitconfig" = {
+          device = "git_config";
+          fsType = "9p";
+          options = [ "trans=virtio" "version=9p2000.L" "ro" "nofail" ];
+          noCheck = true;
+        };
+
+        # SSH keys via 9p (nofail: dir may not exist on host)
+        fileSystems."/home/sandbox/.ssh" = {
+          device = "ssh_dir";
+          fsType = "9p";
+          options = [ "trans=virtio" "version=9p2000.L" "ro" "nofail" ];
+          noCheck = true;
+        };
+
         # Metadata (entrypoint, API key) via 9p
         fileSystems."/mnt/meta" = {
           device = "claude_meta";
@@ -181,6 +197,13 @@ writeShellApplication {
     host_claude_dir="''${HOME}/.claude"
     if [[ -d "$host_claude_dir" ]]; then
       qemu_extra+=(-virtfs "local,path=$host_claude_dir,mount_tag=claude_auth,security_model=none,id=claude_auth")
+    fi
+
+    if [[ -f "$HOME/.gitconfig" ]]; then
+      qemu_extra+=(-virtfs "local,path=$HOME/.gitconfig,mount_tag=git_config,security_model=none,id=git_config,readonly=on")
+    fi
+    if [[ -d "$HOME/.ssh" ]]; then
+      qemu_extra+=(-virtfs "local,path=$HOME/.ssh,mount_tag=ssh_dir,security_model=none,id=ssh_dir,readonly=on")
     fi
 
     export QEMU_OPTS="''${qemu_extra[*]}"
