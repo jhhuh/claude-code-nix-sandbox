@@ -25,11 +25,18 @@ writeShellApplication {
     fi
 
     # Helper: run curl on the remote via SSH
+    # SSH concatenates args into one string for the remote shell,
+    # so we must escape each argument for safe remote parsing.
     remote_api() {
       local method="$1" path="$2"
       shift 2
-      # shellcheck disable=SC2086
-      ssh $SSH_OPTS "$HOST" curl -s -X "$method" "localhost:$PORT$path" "$@"
+      local cmd
+      cmd="curl -s -X $(printf '%q' "$method") $(printf '%q' "localhost:$PORT$path")"
+      for arg in "$@"; do
+        cmd+=" $(printf '%q' "$arg")"
+      done
+      # shellcheck disable=SC2086,SC2029
+      ssh $SSH_OPTS "$HOST" "$cmd"
     }
 
     cmd="''${1:-help}"
