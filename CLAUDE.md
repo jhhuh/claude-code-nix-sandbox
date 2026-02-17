@@ -102,3 +102,4 @@ Non-obvious patterns discovered during development — read before modifying rel
 - `artifacts/skills/ssh-remote-cli-printf-q-escaping.md — printf '%q' for SSH argument escaping`
 - `artifacts/skills/nix-writeShellApplication-escaping-and-shellcheck.md — `''${` escaping, SC2155/SC2029, ShellCheck-as-error in writeShellApplication`
 - `artifacts/skills/nixos-vm-integration-test-with-stub-services.md — nixosTest with stub backends, system user shell gotcha`
+- `artifacts/skills/nix-overlay-injection-into-nixosSystem-calls.md — why overlays must be injected into every nixosSystem call`

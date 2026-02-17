@@ -3,15 +3,18 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    claude-code-nix.url = "github:sadjow/claude-code-nix";
+    claude-code-nix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = { self, nixpkgs }:
+  outputs = { self, nixpkgs, claude-code-nix }:
     let
       supportedSystems = [ "x86_64-linux" "aarch64-linux" ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
       pkgsFor = system: import nixpkgs {
         inherit system;
-        config.allowUnfree = true; # claude-code is unfree
+        config.allowUnfree = true;
+        overlays = [ claude-code-nix.overlays.default ];
       };
     in
     {
@@ -29,7 +32,7 @@
           container = pkgs.callPackage ./nix/backends/container.nix {
             nixos = args: (nixpkgs.lib.nixosSystem {
               inherit system;
-              modules = args.imports;
+              modules = [ { nixpkgs.overlays = [ claude-code-nix.overlays.default ]; } ] ++ args.imports;
             });
           };
 
@@ -37,7 +40,7 @@
             network = false;
             nixos = args: (nixpkgs.lib.nixosSystem {
               inherit system;
-              modules = args.imports;
+              modules = [ { nixpkgs.overlays = [ claude-code-nix.overlays.default ]; } ] ++ args.imports;
             });
           };
 
@@ -45,7 +48,7 @@
           vm = pkgs.callPackage ./nix/backends/vm.nix {
             nixos = args: (nixpkgs.lib.nixosSystem {
               inherit system;
-              modules = args.imports;
+              modules = [ { nixpkgs.overlays = [ claude-code-nix.overlays.default ]; } ] ++ args.imports;
             });
           };
 
@@ -53,7 +56,7 @@
             network = false;
             nixos = args: (nixpkgs.lib.nixosSystem {
               inherit system;
-              modules = args.imports;
+              modules = [ { nixpkgs.overlays = [ claude-code-nix.overlays.default ]; } ] ++ args.imports;
             });
           };
 
