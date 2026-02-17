@@ -182,6 +182,12 @@ writeShellApplication {
     if [[ -n "''${SSH_AUTH_SOCK:-}" ]]; then
       env_args+=(--setenv SSH_AUTH_SOCK "$SSH_AUTH_SOCK")
     fi
+    if [[ -n "''${LANG:-}" ]]; then
+      env_args+=(--setenv LANG "$LANG")
+    fi
+    if [[ -n "''${LC_ALL:-}" ]]; then
+      env_args+=(--setenv LC_ALL "$LC_ALL")
+    fi
 
     # Select entrypoint
     if [[ "$shell_mode" == true ]]; then
@@ -222,6 +228,7 @@ writeShellApplication {
       --ro-bind-try /etc/localtime /etc/localtime \
       --ro-bind-try /etc/zoneinfo /etc/zoneinfo \
       --ro-bind-try /etc/machine-id /etc/machine-id \
+      --ro-bind-try /etc/locale.conf /etc/locale.conf \
       --ro-bind-try /etc/nix /etc/nix \
       --ro-bind-try /etc/static /etc/static \
       "''${x11_args[@]}" \
