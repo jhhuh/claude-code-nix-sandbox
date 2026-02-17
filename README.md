@@ -103,6 +103,23 @@ For NixOS users, a declarative module is available:
 }
 ```
 
+## Customization
+
+Add extra packages inside the sandbox via `extraPackages` (bubblewrap) or `extraModules` (container/VM):
+
+```nix
+# Add python3 and nodejs to the bubblewrap sandbox
+packages.default = pkgs.callPackage ./nix/backends/bubblewrap.nix {
+  extraPackages = [ pkgs.python3 pkgs.nodejs ];
+};
+
+# Add extra NixOS config to the container
+packages.container = pkgs.callPackage ./nix/backends/container.nix {
+  nixos = args: nixpkgs.lib.nixosSystem { system = "x86_64-linux"; modules = args.imports; };
+  extraModules = [{ environment.systemPackages = [ pkgs.python3 ]; }];
+};
+```
+
 ## Requirements
 
 - NixOS or Nix with flakes enabled
