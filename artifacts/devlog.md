@@ -91,3 +91,11 @@ Ran a systematic comparison of all three backends. Found and fixed:
 
 Verified: git config, SSH keys, locale, nix all work correctly inside bubblewrap sandbox.
 
+## 2026-02-17 — UID mapping and remaining consistency
+
+**Container UID mapping**: Replaced all hardcoded uid 1000 references with dynamic detection via `id -u "${SUDO_USER:-${USER}}"`. The container now creates the sandbox user with the real invoking user's UID/GID, preventing file ownership mismatches when the host user is not uid 1000. Affected: `/etc/passwd`, `/etc/group`, `setpriv` args, `chown`, and all `/run/user/` paths.
+
+**Container config alignment**: Forwarded `/etc/nix`, `/etc/static`, `/etc/nsswitch.conf` into container to match bubblewrap's host config forwarding.
+
+ShellCheck caught unquoted `$real_uid` inside array assignments — all instances quoted to pass `writeShellApplication` validation.
+

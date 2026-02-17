@@ -86,12 +86,16 @@ writeShellApplication {
     touch "$container_root/etc/os-release"
     touch "$container_root/etc/machine-id"
 
-    # Create sandbox user (uid 1000) so we can drop privileges
+    # Resolve real user's UID/GID (handles sudo)
+    real_uid="$(id -u "''${SUDO_USER:-''${USER}}")"
+    real_gid="$(id -g "''${SUDO_USER:-''${USER}}")"
+
+    # Create sandbox user with the real user's UID/GID so file ownership matches
     echo "root:x:0:0:root:/root:/bin/bash" > "$container_root/etc/passwd"
-    echo "sandbox:x:1000:1000:sandbox:/home/sandbox:/bin/bash" >> "$container_root/etc/passwd"
+    echo "sandbox:x:$real_uid:$real_gid:sandbox:/home/sandbox:/bin/bash" >> "$container_root/etc/passwd"
     echo "root:x:0:" > "$container_root/etc/group"
-    echo "sandbox:x:1000:" >> "$container_root/etc/group"
-    chown -R 1000:1000 "$container_root/home/sandbox"
+    echo "sandbox:x:$real_gid:" >> "$container_root/etc/group"
+    chown -R "$real_uid:$real_gid" "$container_root/home/sandbox"
 
     # NSS config for username resolution
     echo "passwd: files" > "$container_root/etc/nsswitch.conf"
@@ -121,17 +125,17 @@ writeShellApplication {
     runtime_dir="''${XDG_RUNTIME_DIR:-/run/user/$(id -u "$real_user")}"
     wayland_display="''${WAYLAND_DISPLAY:-}"
     if [[ -n "$wayland_display" ]] && [[ -e "$runtime_dir/$wayland_display" ]]; then
-      wayland_args+=("--bind-ro=$runtime_dir/$wayland_display:/run/user/1000/$wayland_display")
+      wayland_args+=("--bind-ro=$runtime_dir/$wayland_display:/run/user/$real_uid/$wayland_display")
       wayland_args+=("--setenv=WAYLAND_DISPLAY=$wayland_display")
-      wayland_args+=(--setenv=XDG_RUNTIME_DIR=/run/user/1000)
+      wayland_args+=("--setenv=XDG_RUNTIME_DIR=/run/user/$real_uid")
     fi
 
     # D-Bus forwarding
     dbus_args=()
     if [[ -S "$runtime_dir/bus" ]]; then
-      dbus_args+=(--bind-ro="$runtime_dir/bus":/run/user/1000/bus)
-      dbus_args+=(--setenv=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus)
-      dbus_args+=(--setenv=XDG_RUNTIME_DIR=/run/user/1000)
+      dbus_args+=("--bind-ro=$runtime_dir/bus:/run/user/$real_uid/bus")
+      dbus_args+=("--setenv=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$real_uid/bus")
+      dbus_args+=("--setenv=XDG_RUNTIME_DIR=/run/user/$real_uid")
     fi
     if [[ -S /run/dbus/system_bus_socket ]]; then
       dbus_args+=(--bind-ro=/run/dbus/system_bus_socket)
@@ -152,10 +156,10 @@ writeShellApplication {
     # Audio forwarding (PipeWire and PulseAudio)
     audio_args=()
     if [[ -e "$runtime_dir/pipewire-0" ]]; then
-      audio_args+=(--bind-ro="$runtime_dir/pipewire-0":/run/user/1000/pipewire-0)
+      audio_args+=("--bind-ro=$runtime_dir/pipewire-0:/run/user/$real_uid/pipewire-0")
     fi
     if [[ -e "$runtime_dir/pulse/native" ]]; then
-      audio_args+=(--bind-ro="$runtime_dir/pulse":/run/user/1000/pulse)
+      audio_args+=("--bind-ro=$runtime_dir/pulse:/run/user/$real_uid/pulse")
     fi
 
     # Claude auth persistence
@@ -179,8 +183,8 @@ writeShellApplication {
     fi
     ssh_agent_args=()
     if [[ -n "''${SSH_AUTH_SOCK:-}" ]] && [[ -e "$SSH_AUTH_SOCK" ]]; then
-      ssh_agent_args+=(--bind-ro="$SSH_AUTH_SOCK":/run/user/1000/ssh-agent.sock)
-      ssh_agent_args+=(--setenv=SSH_AUTH_SOCK=/run/user/1000/ssh-agent.sock)
+      ssh_agent_args+=("--bind-ro=$SSH_AUTH_SOCK:/run/user/$real_uid/ssh-agent.sock")
+      ssh_agent_args+=("--setenv=SSH_AUTH_SOCK=/run/user/$real_uid/ssh-agent.sock")
     fi
 
     # Network
@@ -250,6 +254,6 @@ writeShellApplication {
       --setenv=TERM="''${TERM:-xterm-256color}" \
       --setenv=NIX_REMOTE=daemon \
       --as-pid2 \
-      -- "${toplevel}/sw/bin/bash" -c "chown 1000:1000 /project && exec ${toplevel}/sw/bin/setpriv --reuid=1000 --regid=1000 --init-groups -- ${toplevel}/sw/bin/bash -c 'cd /project && eval exec \$ENTRYPOINT'"
+      -- "${toplevel}/sw/bin/bash" -c "chown $real_uid:$real_gid /project && exec ${toplevel}/sw/bin/setpriv --reuid=$real_uid --regid=$real_gid --init-groups -- ${toplevel}/sw/bin/bash -c 'cd /project && eval exec \$ENTRYPOINT'"
   '';
 }
