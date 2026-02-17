@@ -183,7 +183,8 @@ writeShellApplication {
     # Create metadata directory (entrypoint + API key)
     meta_dir="$(mktemp -d /tmp/claude-vm-meta.XXXXXX)"
     # Use unique disk image path to avoid collisions between concurrent runs
-    export NIX_DISK_IMAGE="$(mktemp /tmp/claude-sandbox-vm.XXXXXX.qcow2)"
+    NIX_DISK_IMAGE="$(mktemp /tmp/claude-sandbox-vm.XXXXXX.qcow2)"
+    export NIX_DISK_IMAGE
     rm -f "$NIX_DISK_IMAGE"  # QEMU creates it; we just need a unique name
     trap 'rm -rf "$meta_dir" "$NIX_DISK_IMAGE"' EXIT
 
