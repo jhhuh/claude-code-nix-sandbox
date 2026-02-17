@@ -137,7 +137,7 @@ writeShellApplication {
     fi
 
     # Determine sandbox home directory
-    sandbox_home="/home/sandbox"
+    sandbox_home="$HOME"
 
     # Prepare XDG_RUNTIME_DIR bind args (needs --dir before bind since /run is tmpfs)
     xdg_runtime_args=()

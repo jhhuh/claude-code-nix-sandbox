@@ -106,8 +106,27 @@ let
         # Set up environment for sandbox user's login shell
         environment.interactiveShellInit = ''
           if [[ "$(tty)" == /dev/ttyS0 ]]; then
+            # Reconstruct host paths from metadata
+            if [[ -f /mnt/meta/host_home ]]; then
+              host_home=$(cat /mnt/meta/host_home)
+              export HOME="$host_home"
+              sudo mkdir -p "$host_home"
+              sudo chown sandbox:users "$host_home"
+              # Symlink dotfiles from fixed 9p mount to real home path
+              for item in .claude .gitconfig .config .ssh; do
+                if [[ -e "/home/sandbox/$item" ]]; then
+                  ln -sfn "/home/sandbox/$item" "$host_home/$item"
+                fi
+              done
+            fi
+            if [[ -f /mnt/meta/host_project ]]; then
+              host_project=$(cat /mnt/meta/host_project)
+              sudo mkdir -p "$host_project"
+              sudo mount --bind /project "$host_project"
+            fi
+
             export DISPLAY=:0
-            cd /project 2>/dev/null || true
+            cd "''${host_project:-/project}" 2>/dev/null || true
             if [[ -f /mnt/meta/apikey ]]; then
               export ANTHROPIC_API_KEY=$(cat /mnt/meta/apikey)
             fi
@@ -121,11 +140,16 @@ let
           fi
         '';
 
+        security.sudo = {
+          enable = true;
+          wheelNeedsPassword = false;
+        };
+
         users.users.sandbox = {
           isNormalUser = true;
           home = "/home/sandbox";
           uid = 1000;
-          extraGroups = [ "video" "audio" ];
+          extraGroups = [ "video" "audio" "wheel" ];
         };
 
         environment.systemPackages = with pkgs; [
@@ -197,6 +221,10 @@ writeShellApplication {
     if [[ -n "''${ANTHROPIC_API_KEY:-}" ]]; then
       echo "$ANTHROPIC_API_KEY" > "$meta_dir/apikey"
     fi
+
+    # Pass host paths so VM can reconstruct them
+    echo "$HOME" > "$meta_dir/host_home"
+    echo "$project_dir" > "$meta_dir/host_project"
 
     # Share project, metadata, and auth dirs via 9p
     qemu_extra=()

@@ -167,3 +167,13 @@ Replaced nixpkgs' `claude-code` with the package from `github:sadjow/claude-code
 - Updated CLAUDE.md conventions section
 - Updated docs: introduction mentions sadjow/claude-code-nix, customization flake input example shows the overlay, NixOS module docs softened `allowUnfree` note
 
+## 2026-02-21 — Preserve host paths inside sandbox backends
+
+Claude Code stores sessions in `~/.claude/projects/<encoded-path>/` where `<encoded-path>` is the project directory's absolute path with `/` replaced by `-`. When the sandbox uses synthetic paths (`/home/sandbox`, `/project`), Claude creates sessions under a different key and can't find existing host sessions.
+
+**Bubblewrap**: Changed `sandbox_home="/home/sandbox"` → `sandbox_home="$HOME"`. Everything else cascades through the variable — bind mounts, `--setenv HOME`, `--dir`, etc.
+
+**Container**: Moved `real_home`/`real_user` definitions up before `mkdir`. Replaced all `/home/sandbox` references with `$real_home` (passwd entry, Xauthority, .claude, .gitconfig, .config/git, .ssh bind targets). Replaced `/project` with `$project_dir` (bind mount, chown, cd, entrypoint).
+
+**VM**: 9p mount points are baked at NixOS build time, so runtime fixups are needed. Launcher writes `$HOME` and `$project_dir` to meta dir. Added passwordless sudo (`wheel` group) for the sandbox user (VM is already fully isolated). `interactiveShellInit` reads host paths from `/mnt/meta/`, creates real home dir, symlinks dotfiles from `/home/sandbox/` to `$host_home/`, and bind-mounts `/project` to `$host_project`. Bind mount (not symlink) for project dir because `getcwd()` resolves symlinks but not bind mounts.
+

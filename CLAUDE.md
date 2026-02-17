@@ -103,3 +103,4 @@ Non-obvious patterns discovered during development — read before modifying rel
 - `artifacts/skills/nix-writeShellApplication-escaping-and-shellcheck.md — `''${` escaping, SC2155/SC2029, ShellCheck-as-error in writeShellApplication`
 - `artifacts/skills/nixos-vm-integration-test-with-stub-services.md — nixosTest with stub backends, system user shell gotcha`
 - `artifacts/skills/nix-overlay-injection-into-nixosSystem-calls.md — why overlays must be injected into every nixosSystem call`
+- `artifacts/skills/vm-9p-runtime-path-fixup-for-session-continuity.md — build-time vs runtime paths, meta dir, bind-mount vs symlink for getcwd()`
