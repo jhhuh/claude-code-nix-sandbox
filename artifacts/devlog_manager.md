@@ -65,3 +65,12 @@
 - `nix flake check` failed on vm.nix: SC2155 warning on `export NIX_DISK_IMAGE="$(mktemp ...)"`.
 - Pre-existing issue, not caused by manager changes. Fixed by splitting declare and assign.
 - All 8 packages + 2 NixOS modules now pass `nix flake check`.
+
+## 2026-02-17: README documentation (f12e877)
+
+- Added full Remote Sandbox Manager section: architecture diagram, daemon usage, env vars table.
+- Documented all `claude-remote` CLI commands with examples.
+- Documented web dashboard and REST API with curl examples.
+- Added NixOS manager module example (`services.claude-sandbox-manager`).
+- Updated packages table with `manager` and `cli` entries.
+- Split NixOS Module section into "Sandbox backends" and "Manager service" subsections.
