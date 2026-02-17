@@ -79,7 +79,7 @@ writeShellApplication {
     container_root="$(mktemp -d /tmp/claude-nspawn.XXXXXX)"
     trap 'rm -rf "$container_root"' EXIT
 
-    mkdir -p "$container_root"/{etc,var/lib,run,tmp,home/sandbox/.claude,project}
+    mkdir -p "$container_root"/{etc,var/lib,run,tmp,home/sandbox,project}
 
     # Stub files required by nspawn
     touch "$container_root/etc/os-release"
