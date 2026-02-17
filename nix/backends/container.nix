@@ -75,8 +75,9 @@ writeShellApplication {
       exit 1
     fi
 
-    # Create ephemeral container root
+    # Create ephemeral container root (suffix used for unique machine name)
     container_root="$(mktemp -d /tmp/claude-nspawn.XXXXXX)"
+    machine_name="claude-sandbox-''${container_root##*.}"
     trap 'rm -rf "$container_root"' EXIT
 
     mkdir -p "$container_root"/{etc,var/lib,run,tmp,home/sandbox,project}
@@ -200,23 +201,30 @@ writeShellApplication {
       api_key_args+=(--setenv=ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY")
     fi
 
-    # Host config forwarding (DNS, TLS, fonts, timezone)
+    # Host config forwarding (DNS, TLS, fonts, timezone, locale)
     host_cfg_args=()
     for f in /etc/resolv.conf /etc/hosts /etc/ssl /etc/ca-certificates /etc/pki \
-             /etc/fonts /etc/localtime /etc/zoneinfo; do
+             /etc/fonts /etc/localtime /etc/zoneinfo /etc/locale.conf; do
       if [[ -e "$f" ]]; then
         host_cfg_args+=("--bind-ro=$f")
       fi
     done
 
+    # Nix store forwarding (conditional for non-NixOS hosts)
+    nix_args=(--bind-ro=/nix/store)
+    if [[ -d /nix/var/nix/db ]]; then
+      nix_args+=(--bind-ro=/nix/var/nix/db)
+    fi
+    if [[ -d /nix/var/nix/daemon-socket ]]; then
+      nix_args+=(--bind=/nix/var/nix/daemon-socket)
+    fi
+
     exec systemd-nspawn \
       --quiet \
       --ephemeral \
-      -M claude-sandbox \
+      -M "$machine_name" \
       -D "$container_root" \
-      --bind-ro=/nix/store \
-      --bind-ro=/nix/var/nix/db \
-      --bind=/nix/var/nix/daemon-socket \
+      "''${nix_args[@]}" \
       --bind="$project_dir":/project \
       "''${host_cfg_args[@]}" \
       "''${display_args[@]}" \
