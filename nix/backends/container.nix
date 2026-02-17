@@ -193,6 +193,7 @@ writeShellApplication {
       -D "$container_root" \
       --bind-ro=/nix/store \
       --bind-ro=/nix/var/nix/db \
+      --bind-ro=/nix/var/nix/daemon-socket \
       --bind="$project_dir":/project \
       "''${host_cfg_args[@]}" \
       "''${display_args[@]}" \

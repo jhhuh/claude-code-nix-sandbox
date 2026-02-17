@@ -43,3 +43,23 @@ Design: claude-code runs on serial console (user's terminal), Chromium renders i
 
 Tested: Chromium headless DOM dump works, uid=1000, version confirmed.
 
+## 2026-02-17 — NixOS module + flake checks
+
+Added `nix/modules/sandbox.nix` — declarative NixOS module with `services.claude-sandbox` options (enable, network, bubblewrap/container/vm toggles). Sets `security.unprivilegedUsernsClone = true` for bubblewrap.
+
+Added `checks` output to flake.nix referencing all packages for CI validation.
+
+## 2026-02-17 — Nix-daemon forwarding in sandboxes
+
+User asked: "Shouldn't we bind mount host nix-daemon socket so that we can build something inside vm/container?"
+
+Added `/nix/var/nix/daemon-socket` bind-mount to bubblewrap and container backends.
+
+**Problem**: Read-only bind of unix socket fails (Permission denied).
+**Fix**: Changed to read-write bind for the daemon socket.
+
+**Problem**: `nix eval` tried to access `/nix/var/nix/db/big-lock` directly instead of going through daemon.
+**Fix**: Set `NIX_REMOTE=daemon` env var to force daemon mode. Also added `nix` package to sandbox PATH. See skill file: `nix-daemon-socket-forwarding-in-sandboxes.md`.
+
+Verified: `nix eval nixpkgs#hello.name` returns `"hello-2.12.1"` inside bubblewrap sandbox.
+
