@@ -58,6 +58,9 @@
           };
         });
 
+      # Checks: build all packages (used by CI / nix flake check)
+      checks = forAllSystems (system: self.packages.${system});
+
       devShells = forAllSystems (system:
         let pkgs = pkgsFor system;
         in {
