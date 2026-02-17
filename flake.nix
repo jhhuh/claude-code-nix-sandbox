@@ -40,6 +40,22 @@
               modules = args.imports;
             });
           };
+
+          # QEMU VM backend (strongest isolation)
+          vm = pkgs.callPackage ./nix/backends/vm.nix {
+            nixos = args: (nixpkgs.lib.nixosSystem {
+              inherit system;
+              modules = args.imports;
+            });
+          };
+
+          vm-no-network = pkgs.callPackage ./nix/backends/vm.nix {
+            network = false;
+            nixos = args: (nixpkgs.lib.nixosSystem {
+              inherit system;
+              modules = args.imports;
+            });
+          };
         });
 
       devShells = forAllSystems (system:
