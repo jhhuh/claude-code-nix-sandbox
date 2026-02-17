@@ -111,6 +111,7 @@ let
           git
           coreutils
           bash
+          nix
         ];
 
         networking = {
