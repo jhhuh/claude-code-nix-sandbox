@@ -92,7 +92,7 @@ let
             if [[ -f /mnt/meta/entrypoint ]]; then
               entrypoint=$(cat /mnt/meta/entrypoint)
               if [[ "$entrypoint" != "bash" ]]; then
-                exec $entrypoint
+                eval exec $entrypoint
               fi
             fi
           fi
@@ -162,7 +162,7 @@ writeShellApplication {
     if [[ "$shell_mode" == true ]]; then
       echo "bash" > "$meta_dir/entrypoint"
     else
-      echo "claude $*" > "$meta_dir/entrypoint"
+      printf '%q ' claude "$@" > "$meta_dir/entrypoint"
     fi
 
     if [[ -n "''${ANTHROPIC_API_KEY:-}" ]]; then

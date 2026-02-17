@@ -164,8 +164,7 @@ writeShellApplication {
     if [[ "$shell_mode" == true ]]; then
       entrypoint_args=(--setenv=ENTRYPOINT=bash)
     else
-      claude_args=("$@")
-      entrypoint_args=(--setenv=ENTRYPOINT="claude ''${claude_args[*]}")
+      entrypoint_args=(--setenv=ENTRYPOINT="$(printf '%q ' claude "$@")")
     fi
     # Use pipe console when stdin is not a terminal (e.g. piped commands, --version)
     if [[ ! -t 0 ]]; then
@@ -212,6 +211,6 @@ writeShellApplication {
       --setenv=TERM="''${TERM:-xterm-256color}" \
       --setenv=NIX_REMOTE=daemon \
       --as-pid2 \
-      -- "${toplevel}/sw/bin/bash" -c "chown 1000:1000 /project && exec ${toplevel}/sw/bin/setpriv --reuid=1000 --regid=1000 --init-groups -- ${toplevel}/sw/bin/bash -c 'cd /project && exec \$ENTRYPOINT'"
+      -- "${toplevel}/sw/bin/bash" -c "chown 1000:1000 /project && exec ${toplevel}/sw/bin/setpriv --reuid=1000 --regid=1000 --init-groups -- ${toplevel}/sw/bin/bash -c 'cd /project && eval exec \$ENTRYPOINT'"
   '';
 }
