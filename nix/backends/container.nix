@@ -32,6 +32,7 @@ let
           claude-code
           chromium
           git
+          openssh
           coreutils
           bash
           nix

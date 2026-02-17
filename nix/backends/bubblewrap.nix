@@ -15,6 +15,7 @@
   coreutils,
   bash,
   git,
+  openssh,
   nix,
   # Toggle host network access (set false to --unshare-net)
   network ? true,
@@ -31,6 +32,7 @@ let
       coreutils
       bash
       git
+      openssh
       nix
     ] ++ extraPackages;
   };
