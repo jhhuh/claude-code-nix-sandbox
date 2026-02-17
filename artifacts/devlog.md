@@ -81,3 +81,12 @@ Ran a systematic comparison of all three backends. Found and fixed:
 - PipeWire and PulseAudio audio forwarding for bubblewrap and container. Forwards `pipewire-0` and `pulse/native` sockets.
 - Git config (`~/.gitconfig`) and SSH key (`~/.ssh`) forwarding (read-only) to all three backends. SSH agent socket forwarded via `SSH_AUTH_SOCK`.
 - GitHub Actions CI: `.github/workflows/ci.yml` runs `nix flake check` on push/PR.
+
+**Further hardening:**
+- Container machine name now uses unique suffix from mktemp to prevent collisions between concurrent nspawn instances.
+- Container nix db/daemon-socket binds made conditional (was hard-failing on systems without these paths).
+- Locale forwarding added: LANG, LC_ALL env vars and `/etc/locale.conf` for both bubblewrap and container.
+- home-manager git config support: forward `~/.config/git/` in addition to `~/.gitconfig` (all three backends).
+- Forward `/etc/nsswitch.conf` into bubblewrap for proper NSS-based lookups.
+
+Verified: git config, SSH keys, locale, nix all work correctly inside bubblewrap sandbox.
