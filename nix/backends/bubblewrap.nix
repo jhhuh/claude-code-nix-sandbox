@@ -50,7 +50,7 @@ writeShellApplication {
       shift
     fi
 
-    if [[ $# -lt 1 ]]; then
+    if [[ $# -lt 1 ]] || [[ "''${1:-}" == "--help" ]] || [[ "''${1:-}" == "-h" ]]; then
       echo "Usage: claude-sandbox [--shell] <project-dir> [claude args...]" >&2
       echo "  --shell  Drop into bash instead of launching claude" >&2
       exit 1
