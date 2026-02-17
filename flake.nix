@@ -58,7 +58,11 @@
           };
 
           # Remote sandbox manager (Rust/Axum web dashboard)
-          manager = pkgs.callPackage ./nix/manager/package.nix { };
+          manager = pkgs.callPackage ./nix/manager/package.nix {
+            sandboxPackages = [
+              (pkgs.callPackage ./nix/backends/bubblewrap.nix { })
+            ];
+          };
 
           # Local CLI for managing remote sandboxes via SSH
           cli = pkgs.callPackage ./scripts/claude-remote.nix { };

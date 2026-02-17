@@ -9,6 +9,8 @@
   xorg,
   pkg-config,
   openssl,
+  # Sandbox backend packages to put on PATH (e.g. bubblewrap backend)
+  sandboxPackages ? [ ],
 }:
 
 rustPlatform.buildRustPackage {
@@ -28,7 +30,7 @@ rustPlatform.buildRustPackage {
 
     # Wrap binary with runtime dependencies on PATH and default static dir
     wrapProgram $out/bin/claude-sandbox-manager \
-      --prefix PATH : ${lib.makeBinPath [ imagemagick socat tmux xorg.xorgserver ]} \
+      --prefix PATH : ${lib.makeBinPath ([ imagemagick socat tmux xorg.xorgserver ] ++ sandboxPackages)} \
       --set-default MANAGER_STATIC_DIR $out/share/claude-sandbox-manager/static
   '';
 
