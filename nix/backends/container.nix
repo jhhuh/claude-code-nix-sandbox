@@ -165,8 +165,9 @@ writeShellApplication {
     else
       claude_args=("$@")
       entrypoint_args=(--setenv=ENTRYPOINT="claude ''${claude_args[*]}")
-      # Use pipe console for non-interactive commands (e.g. --version)
-      # so stdin/stdout pass through without PTY allocation
+    fi
+    # Use pipe console when stdin is not a terminal (e.g. piped commands, --version)
+    if [[ ! -t 0 ]]; then
       console_args+=(--console=pipe)
     fi
 
