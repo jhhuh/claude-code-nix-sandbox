@@ -32,11 +32,12 @@ Everything is pure Nix — no shell/Python wrapper scripts. The flake exposes pa
 ### Common Commands
 
 ```bash
-direnv allow                   # Load devShell (after flake.nix changes)
-nix flake check                # Validate flake outputs and run checks
-nix build                      # Build default package
-nix build .#<backend>          # Build a specific backend
-nix flake show                 # List all flake outputs
+direnv allow                              # Load devShell (after flake.nix changes)
+nix flake check                           # Validate flake outputs and run checks
+nix build                                 # Build default package (bubblewrap sandbox)
+nix build .#no-network                    # Build with network isolation
+nix flake show                            # List all flake outputs
+./result/bin/claude-sandbox <project-dir>  # Run sandboxed Claude Code
 ```
 
 ## Conventions
@@ -45,3 +46,11 @@ nix flake show                 # List all flake outputs
 - **One backend per file** in `nix/backends/`. Each backend exports a NixOS module or a derivation.
 - **Chromium from nixpkgs**: always use `pkgs.chromium` (or `pkgs.ungoogled-chromium`) inside the sandbox — never forward host browser.
 - **Profiles** in `nix/profiles/` compose a backend + packages (claude-code, chromium, etc.) into a ready-to-run sandbox config.
+- **claude-code is unfree**: `flake.nix` sets `config.allowUnfree = true`. The package comes from nixpkgs (`pkgs.claude-code`).
+- **Backends are callPackage-able**: each backend file in `nix/backends/` is a function taking `{ pkgs, ... }` args, called via `pkgs.callPackage` in `flake.nix`.
+
+## Skill Files
+
+Non-obvious patterns discovered during development — read before modifying related code:
+
+- `artifacts/skills/bubblewrap-dynamic-bash-arrays-for-optional-flags.md — bash arrays for conditional bwrap/nspawn flags`

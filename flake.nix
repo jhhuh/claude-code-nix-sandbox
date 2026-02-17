@@ -9,9 +9,23 @@
     let
       supportedSystems = [ "x86_64-linux" "aarch64-linux" ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
-      pkgsFor = system: nixpkgs.legacyPackages.${system};
+      pkgsFor = system: import nixpkgs {
+        inherit system;
+        config.allowUnfree = true; # claude-code is unfree
+      };
     in
     {
+      packages = forAllSystems (system:
+        let pkgs = pkgsFor system;
+        in {
+          default = pkgs.callPackage ./nix/backends/bubblewrap.nix { };
+
+          # Variant with network isolation
+          no-network = pkgs.callPackage ./nix/backends/bubblewrap.nix {
+            network = false;
+          };
+        });
+
       devShells = forAllSystems (system:
         let pkgs = pkgsFor system;
         in {
