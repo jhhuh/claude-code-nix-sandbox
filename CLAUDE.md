@@ -55,3 +55,4 @@ nix flake show                            # List all flake outputs
 Non-obvious patterns discovered during development — read before modifying related code:
 
 - `artifacts/skills/bubblewrap-dynamic-bash-arrays-for-optional-flags.md — bash arrays for conditional bwrap/nspawn flags`
+- `artifacts/skills/nspawn-privilege-drop-without-pam.md — why `setpriv` instead of `su`/`runuser` in the container backend`
