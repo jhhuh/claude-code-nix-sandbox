@@ -34,6 +34,7 @@ let
           git
           coreutils
           bash
+          nix
           util-linux  # setpriv for privilege dropping
         ];
 
@@ -209,6 +210,7 @@ writeShellApplication {
       --setenv=HOME=/home/sandbox \
       --setenv=PATH="${toplevel}/sw/bin" \
       --setenv=TERM="''${TERM:-xterm-256color}" \
+      --setenv=NIX_REMOTE=daemon \
       --as-pid2 \
       -- "${toplevel}/sw/bin/bash" -c "chown 1000:1000 /project && exec ${toplevel}/sw/bin/setpriv --reuid=1000 --regid=1000 --init-groups -- ${toplevel}/sw/bin/bash -c 'cd /project && exec \$ENTRYPOINT'"
   '';
