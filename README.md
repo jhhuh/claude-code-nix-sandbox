@@ -2,20 +2,28 @@
 
 Launch sandboxed [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code) sessions with Chromium using Nix.
 
-Claude Code runs inside a [bubblewrap](https://github.com/containers/bubblewrap) sandbox with filesystem isolation, display forwarding, and a Chromium browser — all from nixpkgs.
+Claude Code runs inside an isolated sandbox with filesystem isolation, display forwarding, and a Chromium browser — all from nixpkgs. Two backends available: [bubblewrap](https://github.com/containers/bubblewrap) (unprivileged) and [systemd-nspawn](https://www.freedesktop.org/software/systemd/man/latest/systemd-nspawn.html) (root, stronger isolation).
 
 ## Quick Start
 
+### Bubblewrap (unprivileged)
+
 ```bash
-# Run Claude Code in a sandbox (project dir is the only writable mount)
+# Run Claude Code in a sandbox
 nix run github:jhhuh/claude-code-nix-sandbox -- /path/to/project
 
-# Drop into a shell inside the sandbox for debugging
+# Drop into a shell inside the sandbox
 nix run github:jhhuh/claude-code-nix-sandbox -- --shell /path/to/project
+```
 
-# Build locally
-nix build github:jhhuh/claude-code-nix-sandbox
-./result/bin/claude-sandbox /path/to/project
+### systemd-nspawn container (requires sudo)
+
+```bash
+# Run Claude Code in an nspawn container
+nix run github:jhhuh/claude-code-nix-sandbox#container -- sudo /path/to/project
+
+# Shell mode
+nix run github:jhhuh/claude-code-nix-sandbox#container -- sudo --shell /path/to/project
 ```
 
 Requires `ANTHROPIC_API_KEY` in your environment, or an existing `~/.claude` login (auto-mounted).
@@ -36,10 +44,12 @@ Requires `ANTHROPIC_API_KEY` in your environment, or an existing `~/.claude` log
 
 ## Packages
 
-| Package | Description |
-|---|---|
-| `default` | Bubblewrap sandbox with full network |
-| `no-network` | Same but with `--unshare-net` |
+| Package | Backend | Network | Requires |
+|---|---|---|---|
+| `default` | Bubblewrap | Full | User namespaces |
+| `no-network` | Bubblewrap | Isolated | User namespaces |
+| `container` | systemd-nspawn | Full | root (sudo) |
+| `container-no-network` | systemd-nspawn | Isolated | root (sudo) |
 
 ## Requirements
 
