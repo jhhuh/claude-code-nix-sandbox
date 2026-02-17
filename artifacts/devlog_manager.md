@@ -28,3 +28,20 @@
 - Nix flakes only see git-tracked files. Had to `git add` before `nix build` would find new files.
 - askama templates can't reference Rust enum variants directly — need helper methods on the struct.
 
+## 2026-02-17: Local testing and bug fixes
+
+**CLI SSH quoting bug (a68d9f7):**
+- `remote_api` passed curl args as separate SSH arguments. SSH concatenates them into a single string for the remote shell, so JSON payloads with `{}:` were parsed as bash commands.
+- Fix: use `printf '%q'` to escape each argument before building the SSH command string.
+- Also needed `# shellcheck disable=SC2029` — `writeShellApplication` treats SC2029 (info) as error.
+
+**Sandbox immediately dead (ad15ff2):**
+- Manager spawns backend inside tmux (`claude-sandbox /tmp/test`), but `claude-sandbox` wasn't on the manager's PATH.
+- Fix: added `sandboxPackages` parameter to `package.nix`, passed bubblewrap backend from `flake.nix`. Nix deduplicates the derivation so it's not built twice.
+
+**Local testing results:**
+- Manager served on port 3001 (3000 was occupied).
+- All endpoints verified: dashboard HTML, new sandbox form, JSON CRUD API, system metrics, htmx fragments, static files.
+- Created sandbox via CLI and curl — tmux session stayed alive, status remained `running`.
+- `tmux attach -t sandbox-<short-id>` connects to the Claude session inside the sandbox.
+
