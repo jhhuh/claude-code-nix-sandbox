@@ -1,0 +1,7 @@
+<table class="info-table compact">
+    <tr><th>CPU</th><td>{{ "{:.1}"|format(metrics.cpu_usage) }}%</td></tr>
+    <tr><th>Memory</th><td>{{ "{:.1}"|format(metrics.memory_used_gb()) }} / {{ "{:.1}"|format(metrics.memory_total_gb()) }} GB</td></tr>
+    <tr><th>Disk</th><td>{{ "{:.0}"|format(metrics.disk_used_gb()) }} / {{ "{:.0}"|format(metrics.disk_total_gb()) }} GB</td></tr>
+    <tr><th>Net RX</th><td>{{ metrics.net_rx_bytes }} B</td></tr>
+    <tr><th>Net TX</th><td>{{ metrics.net_tx_bytes }} B</td></tr>
+</table>

@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}{{ sandbox.name }} - Claude Sandbox Manager{% endblock %}
+
+{% block content %}
+<div class="sandbox-detail">
+    <div class="section-header">
+        <h1>{{ sandbox.name }}</h1>
+        <span class="badge badge-{{ sandbox.status }}">{{ sandbox.status }}</span>
+    </div>
+
+    <div class="sandbox-info">
+        <table class="info-table">
+            <tr><th>ID</th><td><code>{{ sandbox.id }}</code></td></tr>
+            <tr><th>Backend</th><td>{{ sandbox.backend }}</td></tr>
+            <tr><th>Project</th><td><code>{{ sandbox.project_dir }}</code></td></tr>
+            <tr><th>Network</th><td>{% if sandbox.network %}yes{% else %}no{% endif %}</td></tr>
+            <tr><th>Display</th><td>{% match sandbox.display_num %}{% when Some with (n) %}:{{ n }}{% when None %}N/A{% endmatch %}</td></tr>
+            <tr>
+                <th>tmux</th>
+                <td>
+                    {% match sandbox.tmux_session %}{% when Some with (s) %}<code>tmux attach -t {{ s }}</code>{% when None %}N/A{% endmatch %}
+                </td>
+            </tr>
+            <tr><th>Created</th><td>{{ sandbox.created_at }}</td></tr>
+        </table>
+    </div>
+
+    <div class="sandbox-actions">
+        {% if sandbox.is_running() %}
+        <button class="btn btn-warn"
+                hx-post="/api/sandboxes/{{ sandbox.id }}/stop"
+                hx-swap="none"
+                hx-on::after-request="location.reload()">Stop</button>
+        {% endif %}
+        <button class="btn btn-danger"
+                hx-delete="/api/sandboxes/{{ sandbox.id }}"
+                hx-swap="none"
+                hx-on::after-request="location.href='/'">Delete</button>
+    </div>
+
+    <div class="sandbox-panels">
+        <div class="panel">
+            <h2>Screenshot</h2>
+            <div id="screenshot-frame"
+                 hx-get="/fragments/sandboxes/{{ sandbox.id }}/screenshot"
+                 hx-trigger="every 2s">
+                {% if sandbox.display_num.is_some() || sandbox.qemu_qmp_socket.is_some() %}
+                <img src="/api/sandboxes/{{ sandbox.id }}/screenshot"
+                     alt="Screenshot" class="screenshot"
+                     onerror="this.alt='No screenshot available'">
+                {% else %}
+                <p class="muted">No display attached</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Claude Metrics</h2>
+            <div id="claude-metrics"
+                 hx-get="/fragments/sandboxes/{{ sandbox.id }}/claude-metrics"
+                 hx-trigger="every 5s">
+                {% match metrics %}
+                {% when Some with (m) %}
+                <table class="info-table">
+                    <tr><th>Messages</th><td>{{ m.message_count }}</td></tr>
+                    <tr><th>Input tokens</th><td>{{ m.input_tokens }}</td></tr>
+                    <tr><th>Output tokens</th><td>{{ m.output_tokens }}</td></tr>
+                    <tr><th>Cache created</th><td>{{ m.cache_creation_tokens }}</td></tr>
+                    <tr><th>Cache read</th><td>{{ m.cache_read_tokens }}</td></tr>
+                    <tr><th>Tool uses</th><td>{{ m.tool_use_count }}</td></tr>
+                </table>
+                {% when None %}
+                <p class="muted">No metrics yet</p>
+                {% endmatch %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
