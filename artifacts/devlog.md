@@ -143,3 +143,16 @@ Added a full documentation site using mdBook:
 - Content derived from README + source code reading (backends, modules, manager Rust source, CLI)
 - Verified: `nix build .#docs` succeeds, `nix flake check` passes (docs included in checks)
 
+## 2026-02-18 — Config file support for claude-remote CLI
+
+Added config file loading to `claude-remote` so users don't need to export env vars in every shell session.
+
+- Config location: `${XDG_CONFIG_HOME:-~/.config}/claude-remote/config`
+- Format: simple `key = value` lines, comments with `#`, blank lines ignored
+- Supported keys: `host`, `port`, `ssh_opts`
+- Precedence: env var > config file > default
+- Pure bash parsing (no extra deps) — `while read` loop with `%%`/`#` parameter expansion for key/value splitting
+- Updated help text to show config file location and example
+- Updated mdBook docs (`docs/src/remote-manager/cli.md`) with config file section
+- Nix escaping gotcha: `${...}` in comments inside `''` strings is still interpolated by Nix — must use `''${` escape even in bash comments
+

@@ -16,16 +16,33 @@ writeShellApplication {
   text = ''
     set -euo pipefail
 
-    HOST="''${CLAUDE_REMOTE_HOST:-}"
-    PORT="''${CLAUDE_REMOTE_PORT:-3000}"
-    SSH_OPTS="''${CLAUDE_REMOTE_SSH_OPTS:-}"
+    # Load config file: ''${XDG_CONFIG_HOME:-~/.config}/claude-remote/config
+    _cfg_host="" _cfg_port="" _cfg_ssh_opts=""
+    _config_file="''${XDG_CONFIG_HOME:-$HOME/.config}/claude-remote/config"
+    if [[ -f "$_config_file" ]]; then
+      while IFS= read -r line || [[ -n "$line" ]]; do
+        line="''${line%%#*}"          # strip comments
+        [[ -z "''${line// /}" ]] && continue  # skip blank
+        key="''${line%%=*}"; val="''${line#*=}"
+        key="''${key// /}"; val="''${val# }"; val="''${val% }"
+        case "$key" in
+          host)     _cfg_host="$val" ;;
+          port)     _cfg_port="$val" ;;
+          ssh_opts) _cfg_ssh_opts="$val" ;;
+        esac
+      done < "$_config_file"
+    fi
+
+    HOST="''${CLAUDE_REMOTE_HOST:-$_cfg_host}"
+    PORT="''${CLAUDE_REMOTE_PORT:-''${_cfg_port:-3000}}"
+    SSH_OPTS="''${CLAUDE_REMOTE_SSH_OPTS:-$_cfg_ssh_opts}"
 
     # Allow help without CLAUDE_REMOTE_HOST
     if [[ "''${1:-}" == "help" || "''${1:-}" == "--help" || "''${1:-}" == "-h" || $# -eq 0 ]]; then
       set -- help
     elif [[ -z "$HOST" ]]; then
-      echo "Error: CLAUDE_REMOTE_HOST is not set" >&2
-      echo "Usage: CLAUDE_REMOTE_HOST=server claude-remote <command>" >&2
+      echo "Error: host is not set (use CLAUDE_REMOTE_HOST or config file)" >&2
+      echo "Run 'claude-remote help' for usage." >&2
       exit 1
     fi
 
@@ -223,10 +240,15 @@ writeShellApplication {
       help|--help|-h)
         echo "claude-remote — manage sandboxes on a remote server"
         echo ""
-        echo "Environment:"
-        echo "  CLAUDE_REMOTE_HOST    Remote server hostname (required)"
-        echo "  CLAUDE_REMOTE_PORT    Manager port (default: 3000)"
+        echo "Configuration (env var > config file > default):"
+        echo "  CLAUDE_REMOTE_HOST      Remote server hostname (required)"
+        echo "  CLAUDE_REMOTE_PORT      Manager port (default: 3000)"
         echo "  CLAUDE_REMOTE_SSH_OPTS  Extra SSH options"
+        echo ""
+        echo "Config file: ''${XDG_CONFIG_HOME:-"$HOME/.config"}/claude-remote/config"
+        echo "  host = myserver"
+        echo "  port = 3000"
+        echo "  ssh_opts = -i ~/.ssh/mykey"
         echo ""
         echo "Commands:"
         echo "  create <name> <backend> <dir> [--no-network] [--sync]"

@@ -16,13 +16,32 @@ nix build github:jhhuh/claude-code-nix-sandbox#cli
 ./result/bin/claude-remote help
 ```
 
-## Environment variables
+## Configuration
 
-| Variable | Required | Default | Description |
+Settings are resolved in order: **environment variable > config file > default**.
+
+### Config file
+
+Location: `${XDG_CONFIG_HOME:-~/.config}/claude-remote/config`
+
+```
+# ~/.config/claude-remote/config
+host = myserver
+port = 3000
+ssh_opts = -i ~/.ssh/mykey
+```
+
+Lines starting with `#` are comments. Blank lines are ignored.
+
+### Environment variables
+
+| Variable | Config key | Default | Description |
 |---|---|---|---|
-| `CLAUDE_REMOTE_HOST` | Yes | — | Remote server hostname |
-| `CLAUDE_REMOTE_PORT` | No | `3000` | Manager port on the remote |
-| `CLAUDE_REMOTE_SSH_OPTS` | No | — | Extra SSH options (e.g. `-i ~/.ssh/key`) |
+| `CLAUDE_REMOTE_HOST` | `host` | — | Remote server hostname (required) |
+| `CLAUDE_REMOTE_PORT` | `port` | `3000` | Manager port on the remote |
+| `CLAUDE_REMOTE_SSH_OPTS` | `ssh_opts` | — | Extra SSH options (e.g. `-i ~/.ssh/key`) |
+
+Environment variables always override config file values.
 
 ## Commands
 
