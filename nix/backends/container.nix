@@ -148,6 +148,15 @@ writeShellApplication {
       gpu_args+=(--bind-ro=/run/opengl-driver)
     fi
 
+    # Audio forwarding (PipeWire and PulseAudio)
+    audio_args=()
+    if [[ -e "$runtime_dir/pipewire-0" ]]; then
+      audio_args+=(--bind-ro="$runtime_dir/pipewire-0":/run/user/1000/pipewire-0)
+    fi
+    if [[ -e "$runtime_dir/pulse/native" ]]; then
+      audio_args+=(--bind-ro="$runtime_dir/pulse":/run/user/1000/pulse)
+    fi
+
     # Claude auth persistence
     claude_auth_args=()
     host_claude_dir="$real_home/.claude"
@@ -201,6 +210,7 @@ writeShellApplication {
       "''${wayland_args[@]}" \
       "''${dbus_args[@]}" \
       "''${gpu_args[@]}" \
+      "''${audio_args[@]}" \
       "''${claude_auth_args[@]}" \
       "''${network_args[@]}" \
       "''${api_key_args[@]}" \

@@ -121,6 +121,19 @@ writeShellApplication {
       gpu_args+=(--ro-bind /run/opengl-driver /run/opengl-driver)
     fi
 
+    # Audio forwarding (PipeWire and PulseAudio)
+    audio_args=()
+    if [[ -n "''${XDG_RUNTIME_DIR:-}" ]]; then
+      # PipeWire
+      if [[ -e "$XDG_RUNTIME_DIR/pipewire-0" ]]; then
+        audio_args+=(--ro-bind "$XDG_RUNTIME_DIR/pipewire-0" "$XDG_RUNTIME_DIR/pipewire-0")
+      fi
+      # PulseAudio
+      if [[ -e "$XDG_RUNTIME_DIR/pulse/native" ]]; then
+        audio_args+=(--ro-bind "$XDG_RUNTIME_DIR/pulse" "$XDG_RUNTIME_DIR/pulse")
+      fi
+    fi
+
     # Determine sandbox home directory
     sandbox_home="/home/sandbox"
 
@@ -199,6 +212,7 @@ writeShellApplication {
       "''${xauth_args[@]}" \
       "''${wayland_args[@]}" \
       "''${dbus_args[@]}" \
+      "''${audio_args[@]}" \
       "''${env_args[@]}" \
       --setenv HOME "$sandbox_home" \
       --setenv PATH "${sandboxPath}/bin" \
