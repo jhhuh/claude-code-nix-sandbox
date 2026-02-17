@@ -81,22 +81,26 @@ writeShellApplication {
     machine_name="claude-sandbox-''${container_root##*.}"
     trap 'rm -rf "$container_root"' EXIT
 
-    mkdir -p "$container_root"/{etc,var/lib,run,tmp,home/sandbox,project}
+    mkdir -p "$container_root"/{etc,var/lib,run,tmp}
 
     # Stub files required by nspawn
     touch "$container_root/etc/os-release"
     touch "$container_root/etc/machine-id"
 
-    # Resolve real user's UID/GID (handles sudo)
+    # Resolve real user's UID/GID/home/name (handles sudo)
     real_uid="$(id -u "''${SUDO_USER:-''${USER}}")"
     real_gid="$(id -g "''${SUDO_USER:-''${USER}}")"
+    real_home="''${SUDO_HOME:-''${HOME}}"
+    real_user="''${SUDO_USER:-''${USER}}"
 
     # Create sandbox user with the real user's UID/GID so file ownership matches
     echo "root:x:0:0:root:/root:/bin/bash" > "$container_root/etc/passwd"
-    echo "sandbox:x:$real_uid:$real_gid:sandbox:/home/sandbox:/bin/bash" >> "$container_root/etc/passwd"
+    echo "sandbox:x:$real_uid:$real_gid:sandbox:$real_home:/bin/bash" >> "$container_root/etc/passwd"
     echo "root:x:0:" > "$container_root/etc/group"
     echo "sandbox:x:$real_gid:" >> "$container_root/etc/group"
-    chown -R "$real_uid:$real_gid" "$container_root/home/sandbox"
+    mkdir -p "$container_root$real_home"
+    mkdir -p "$container_root$project_dir"
+    chown -R "$real_uid:$real_gid" "$container_root$real_home"
 
     # NSS config for username resolution
     echo "passwd: files" > "$container_root/etc/nsswitch.conf"
@@ -110,14 +114,12 @@ writeShellApplication {
     fi
 
     xauth_args=()
-    real_home="''${SUDO_HOME:-''${HOME}}"
-    real_user="''${SUDO_USER:-''${USER}}"
     xauth_file="''${XAUTHORITY:-$real_home/.Xauthority}"
     if [[ -e "$xauth_file" ]]; then
       # Copy Xauthority into the container root (bind-mount gets hidden by --ephemeral overlay)
-      cp "$xauth_file" "$container_root/home/sandbox/.Xauthority"
-      chmod 644 "$container_root/home/sandbox/.Xauthority"
-      xauth_args+=(--setenv=XAUTHORITY=/home/sandbox/.Xauthority)
+      cp "$xauth_file" "$container_root$real_home/.Xauthority"
+      chmod 644 "$container_root$real_home/.Xauthority"
+      xauth_args+=(--setenv=XAUTHORITY="$real_home/.Xauthority")
       # Set container hostname to match the Xauthority cookie (keyed by hostname)
       xauth_args+=("--hostname=$(hostname)")
     fi
@@ -167,20 +169,20 @@ writeShellApplication {
     claude_auth_args=()
     host_claude_dir="$real_home/.claude"
     if [[ -d "$host_claude_dir" ]]; then
-      claude_auth_args+=(--bind="$host_claude_dir":/home/sandbox/.claude)
+      claude_auth_args+=(--bind="$host_claude_dir":"$real_home/.claude")
     fi
 
     # Git and SSH forwarding (read-only)
     git_args=()
     if [[ -f "$real_home/.gitconfig" ]]; then
-      git_args+=(--bind-ro="$real_home/.gitconfig":/home/sandbox/.gitconfig)
+      git_args+=(--bind-ro="$real_home/.gitconfig":"$real_home/.gitconfig")
     fi
     if [[ -d "$real_home/.config/git" ]]; then
-      mkdir -p "$container_root/home/sandbox/.config/git"
-      git_args+=(--bind-ro="$real_home/.config/git":/home/sandbox/.config/git)
+      mkdir -p "$container_root$real_home/.config/git"
+      git_args+=(--bind-ro="$real_home/.config/git":"$real_home/.config/git")
     fi
     if [[ -d "$real_home/.ssh" ]]; then
-      git_args+=(--bind-ro="$real_home/.ssh":/home/sandbox/.ssh)
+      git_args+=(--bind-ro="$real_home/.ssh":"$real_home/.ssh")
     fi
     ssh_agent_args=()
     if [[ -n "''${SSH_AUTH_SOCK:-}" ]] && [[ -e "$SSH_AUTH_SOCK" ]]; then
@@ -235,7 +237,7 @@ writeShellApplication {
       -M "$machine_name" \
       -D "$container_root" \
       "''${nix_args[@]}" \
-      --bind="$project_dir":/project \
+      --bind="$project_dir":"$project_dir" \
       "''${host_cfg_args[@]}" \
       "''${display_args[@]}" \
       "''${xauth_args[@]}" \
@@ -250,11 +252,11 @@ writeShellApplication {
       "''${api_key_args[@]}" \
       "''${entrypoint_args[@]}" \
       "''${console_args[@]}" \
-      --setenv=HOME=/home/sandbox \
+      --setenv=HOME="$real_home" \
       --setenv=PATH="${toplevel}/sw/bin" \
       --setenv=TERM="''${TERM:-xterm-256color}" \
       --setenv=NIX_REMOTE=daemon \
       --as-pid2 \
-      -- "${toplevel}/sw/bin/bash" -c "chown $real_uid:$real_gid /project && exec ${toplevel}/sw/bin/setpriv --reuid=$real_uid --regid=$real_gid --init-groups -- ${toplevel}/sw/bin/bash -c 'cd /project && eval exec \$ENTRYPOINT'"
+      -- "${toplevel}/sw/bin/bash" -c "chown $real_uid:$real_gid $project_dir && exec ${toplevel}/sw/bin/setpriv --reuid=$real_uid --regid=$real_gid --init-groups -- ${toplevel}/sw/bin/bash -c 'cd $project_dir && eval exec \$ENTRYPOINT'"
   '';
 }
