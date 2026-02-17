@@ -1,9 +1,10 @@
 # Bubblewrap sandbox backend for Claude Code + Chromium
 #
-# Usage: claude-sandbox <project-dir> [claude args...]
+# Usage: claude-sandbox [--shell] <project-dir> [claude args...]
 #
 # Produces a writeShellApplication that wraps bwrap to isolate
 # claude-code and chromium with access to a single project directory.
+# Automatically bind-mounts ~/.claude for auth persistence if it exists.
 {
   lib,
   writeShellApplication,
@@ -39,8 +40,15 @@ writeShellApplication {
   runtimeInputs = [ bubblewrap coreutils ];
 
   text = ''
+    shell_mode=false
+    if [[ "''${1:-}" == "--shell" ]]; then
+      shell_mode=true
+      shift
+    fi
+
     if [[ $# -lt 1 ]]; then
-      echo "Usage: claude-sandbox <project-dir> [claude args...]" >&2
+      echo "Usage: claude-sandbox [--shell] <project-dir> [claude args...]" >&2
+      echo "  --shell  Drop into bash instead of launching claude" >&2
       exit 1
     fi
 
@@ -120,6 +128,20 @@ writeShellApplication {
       xdg_runtime_args+=(--dir "$XDG_RUNTIME_DIR")
     fi
 
+    # Claude auth persistence: bind-mount ~/.claude if it exists
+    claude_auth_args=()
+    host_claude_dir="''${HOME}/.claude"
+    if [[ -d "$host_claude_dir" ]]; then
+      claude_auth_args+=(--bind "$host_claude_dir" "$sandbox_home/.claude")
+    fi
+
+    # Select entrypoint
+    if [[ "$shell_mode" == true ]]; then
+      entrypoint=(bash)
+    else
+      entrypoint=(claude "$@")
+    fi
+
     exec bwrap \
       --die-with-parent \
       --proc /proc \
@@ -136,6 +158,7 @@ writeShellApplication {
       --tmpfs /home \
       --dir "$sandbox_home" \
       --dir "$sandbox_home/.config" \
+      "''${claude_auth_args[@]}" \
       --bind "$project_dir" "$project_dir" \
       --ro-bind-try /etc/resolv.conf /etc/resolv.conf \
       --ro-bind-try /etc/hosts /etc/hosts \
@@ -166,6 +189,6 @@ writeShellApplication {
       --setenv XDG_CONFIG_HOME "$sandbox_home/.config" \
       ${networkFlags} \
       --chdir "$project_dir" \
-      claude "$@"
+      "''${entrypoint[@]}"
   '';
 }
