@@ -15,6 +15,7 @@
   coreutils,
   bash,
   git,
+  nix,
   # Toggle host network access (set false to --unshare-net)
   network ? true,
   # Additional packages available inside the sandbox
@@ -30,6 +31,7 @@ let
       coreutils
       bash
       git
+      nix
     ] ++ extraPackages;
   };
 
@@ -150,7 +152,7 @@ writeShellApplication {
       "''${dri_args[@]}" \
       --ro-bind /nix/store /nix/store \
       --ro-bind-try /nix/var/nix/db /nix/var/nix/db \
-      --ro-bind-try /nix/var/nix/daemon-socket /nix/var/nix/daemon-socket \
+      --bind-try /nix/var/nix/daemon-socket /nix/var/nix/daemon-socket \
       --ro-bind-try /run/current-system/sw /run/current-system/sw \
       --tmpfs /tmp \
       --tmpfs /run \
@@ -187,6 +189,7 @@ writeShellApplication {
       --setenv DBUS_SESSION_BUS_ADDRESS "''${DBUS_SESSION_BUS_ADDRESS:-}" \
       --setenv TERM "''${TERM:-xterm-256color}" \
       --setenv ANTHROPIC_API_KEY "''${ANTHROPIC_API_KEY:-}" \
+      --setenv NIX_REMOTE daemon \
       --setenv XDG_RUNTIME_DIR "''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" \
       --setenv XDG_CONFIG_HOME "$sandbox_home/.config" \
       ${networkFlags} \
