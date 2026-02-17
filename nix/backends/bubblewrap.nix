@@ -233,6 +233,7 @@ writeShellApplication {
       --ro-bind-try /etc/zoneinfo /etc/zoneinfo \
       --ro-bind-try /etc/machine-id /etc/machine-id \
       --ro-bind-try /etc/locale.conf /etc/locale.conf \
+      --ro-bind-try /etc/nsswitch.conf /etc/nsswitch.conf \
       --ro-bind-try /etc/nix /etc/nix \
       --ro-bind-try /etc/static /etc/static \
       "''${x11_args[@]}" \
