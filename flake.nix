@@ -72,8 +72,11 @@
       nixosModules.default = ./nix/modules/sandbox.nix;
       nixosModules.manager = ./nix/modules/manager.nix;
 
-      # Checks: build all packages (used by CI / nix flake check)
-      checks = forAllSystems (system: self.packages.${system});
+      # Checks: build all packages + NixOS VM tests
+      checks = forAllSystems (system:
+        self.packages.${system} // {
+          manager-test = (pkgsFor system).testers.nixosTest (import ./tests/manager.nix { inherit self; });
+        });
 
       devShells = forAllSystems (system:
         let pkgs = pkgsFor system;

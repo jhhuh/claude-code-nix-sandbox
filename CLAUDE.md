@@ -101,3 +101,4 @@ Non-obvious patterns discovered during development — read before modifying rel
 - `artifacts/skills/sudo-aware-uid-detection-for-containers.md — dynamic UID/GID under sudo for file ownership`
 - `artifacts/skills/ssh-remote-cli-printf-q-escaping.md — printf '%q' for SSH argument escaping`
 - `artifacts/skills/nix-writeShellApplication-escaping-and-shellcheck.md — `''${` escaping, SC2155/SC2029, ShellCheck-as-error in writeShellApplication`
+- `artifacts/skills/nixos-vm-integration-test-with-stub-services.md — nixosTest with stub backends, system user shell gotcha`

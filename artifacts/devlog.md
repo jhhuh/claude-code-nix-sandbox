@@ -120,3 +120,16 @@ Added `sync` and `watch` commands to `claude-remote` for syncing project directo
 - `create --sync`: runs one-shot sync before calling the create API
 - Added `rsync` and `fswatch` to `runtimeInputs` in `scripts/claude-remote.nix`
 
+## 2026-02-17 — NixOS VM integration test for remote manager
+
+Added `tests/manager.nix` — a `nixosTest` that exercises the full manager API lifecycle in a QEMU VM. Uses a stub `claude-sandbox` (`sleep 300`) to avoid needing the real backend.
+
+Test covers: service startup, empty list, system metrics, create sandbox, list with one entry, stop, verify stopped, delete, verify empty, state.json validity. All 9 steps pass in ~13s.
+
+Key details:
+- `pkgs.testers.nixosTest` (not `pkgs.nixosTest` — removed from nixpkgs)
+- Stub added via `sandboxPackages` module option (goes to systemd `path`)
+- Set `SHELL=${pkgs.bash}/bin/bash` in service environment — system user defaults to nologin, which breaks tmux session creation
+- Wired into flake `checks` as `manager-test`, runnable via `nix build .#checks.x86_64-linux.manager-test -L`
+- Noted deprecation warning: `xorg.xorgserver` → `xorg-server` (in `package.nix`, not fixed here)
+
