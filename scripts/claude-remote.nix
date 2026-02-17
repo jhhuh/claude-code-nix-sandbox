@@ -18,7 +18,10 @@ writeShellApplication {
     PORT="''${CLAUDE_REMOTE_PORT:-3000}"
     SSH_OPTS="''${CLAUDE_REMOTE_SSH_OPTS:-}"
 
-    if [[ -z "$HOST" ]]; then
+    # Allow help without CLAUDE_REMOTE_HOST
+    if [[ "''${1:-}" == "help" || "''${1:-}" == "--help" || "''${1:-}" == "-h" || $# -eq 0 ]]; then
+      set -- help
+    elif [[ -z "$HOST" ]]; then
       echo "Error: CLAUDE_REMOTE_HOST is not set" >&2
       echo "Usage: CLAUDE_REMOTE_HOST=server claude-remote <command>" >&2
       exit 1
