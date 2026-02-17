@@ -1,0 +1,196 @@
+# QEMU VM backend for Claude Code + Chromium
+#
+# Usage: claude-sandbox-vm [--shell] <project-dir> [claude args...]
+#
+# Launches a NixOS VM via QEMU with claude-code and chromium.
+# Provides the strongest isolation: separate kernel, full hardware
+# virtualization. Claude runs on the serial console (in your terminal),
+# Chromium renders in the QEMU display window.
+{
+  lib,
+  writeShellApplication,
+  coreutils,
+  nixos,
+  # Toggle host network access (set false for isolated network)
+  network ? true,
+  # Additional NixOS modules for the VM
+  extraModules ? [ ],
+}:
+
+let
+  vmSystem = nixos {
+    imports = [
+      ({ pkgs, modulesPath, ... }: {
+        imports = [ "${modulesPath}/virtualisation/qemu-vm.nix" ];
+
+        nixpkgs.config.allowUnfree = true;
+
+        virtualisation = {
+          memorySize = 4096;
+          cores = 4;
+          graphics = true;
+          diskImage = "/tmp/claude-sandbox-vm.qcow2";
+          vlans = lib.mkIf (!network) [ ];
+        };
+
+        # Project directory via 9p (host path passed at runtime via QEMU_OPTS)
+        fileSystems."/project" = {
+          device = "project_share";
+          fsType = "9p";
+          options = [ "trans=virtio" "version=9p2000.L" "msize=104857600" ];
+          noCheck = true;
+        };
+
+        # Claude auth via 9p (nofail: dir may not exist on host)
+        fileSystems."/home/sandbox/.claude" = {
+          device = "claude_auth";
+          fsType = "9p";
+          options = [ "trans=virtio" "version=9p2000.L" "nofail" ];
+          noCheck = true;
+        };
+
+        # Metadata (entrypoint, API key) via 9p
+        fileSystems."/mnt/meta" = {
+          device = "claude_meta";
+          fsType = "9p";
+          options = [ "trans=virtio" "version=9p2000.L" "ro" ];
+          noCheck = true;
+        };
+
+        # Minimal Xorg + WM for Chromium display (shown in QEMU window)
+        services.xserver = {
+          enable = true;
+          windowManager.openbox.enable = true;
+        };
+        services.displayManager = {
+          autoLogin = {
+            enable = true;
+            user = "sandbox";
+          };
+          defaultSession = "none+openbox";
+        };
+
+        # Disable serial getty — we use our own service on ttyS0
+        systemd.services."serial-getty@ttyS0".enable = false;
+
+        # Claude Code runs on the serial console (user's terminal)
+        systemd.services.claude-entrypoint = {
+          description = "Claude Code";
+          after = [ "display-manager.service" "mnt-meta.mount" ];
+          requires = [ "mnt-meta.mount" ];
+          wantedBy = [ "multi-user.target" ];
+          serviceConfig = {
+            Type = "simple";
+            User = "sandbox";
+            Group = "users";
+            WorkingDirectory = "/project";
+            StandardInput = "tty";
+            StandardOutput = "tty";
+            StandardError = "tty";
+            TTYPath = "/dev/ttyS0";
+            TTYReset = true;
+            TTYVHangup = true;
+          };
+          script = ''
+            export DISPLAY=:0
+            export HOME=/home/sandbox
+            export TERM=xterm-256color
+
+            if [[ -f /mnt/meta/apikey ]]; then
+              export ANTHROPIC_API_KEY=$(cat /mnt/meta/apikey)
+            fi
+
+            entrypoint="bash"
+            if [[ -f /mnt/meta/entrypoint ]]; then
+              entrypoint=$(cat /mnt/meta/entrypoint)
+            fi
+
+            exec $entrypoint
+          '';
+        };
+
+        users.users.sandbox = {
+          isNormalUser = true;
+          home = "/home/sandbox";
+          uid = 1000;
+          extraGroups = [ "video" "audio" ];
+        };
+
+        environment.systemPackages = with pkgs; [
+          claude-code
+          chromium
+          git
+          coreutils
+          bash
+        ];
+
+        networking = {
+          hostName = "claude-sandbox";
+          useDHCP = network;
+        };
+
+        # Forward host DNS/TLS/fonts config
+        environment.etc = {
+          "fonts/fonts.conf".source = lib.mkDefault "${pkgs.fontconfig.out}/etc/fonts/fonts.conf";
+        };
+
+        system.stateVersion = "24.11";
+      })
+    ] ++ extraModules;
+  };
+
+  vmScript = vmSystem.config.system.build.vm;
+in
+writeShellApplication {
+  name = "claude-sandbox-vm";
+  runtimeInputs = [ coreutils ];
+
+  text = ''
+    shell_mode=false
+    if [[ "''${1:-}" == "--shell" ]]; then
+      shell_mode=true
+      shift
+    fi
+
+    if [[ $# -lt 1 ]]; then
+      echo "Usage: claude-sandbox-vm [--shell] <project-dir> [claude args...]" >&2
+      echo "  --shell  Drop into bash instead of launching claude" >&2
+      exit 1
+    fi
+
+    project_dir="$(realpath "$1")"
+    shift
+
+    if [[ ! -d "$project_dir" ]]; then
+      echo "Error: $project_dir is not a directory" >&2
+      exit 1
+    fi
+
+    # Create metadata directory (entrypoint + API key)
+    meta_dir="$(mktemp -d /tmp/claude-vm-meta.XXXXXX)"
+    trap 'rm -rf "$meta_dir" /tmp/claude-sandbox-vm.qcow2' EXIT
+
+    if [[ "$shell_mode" == true ]]; then
+      echo "bash" > "$meta_dir/entrypoint"
+    else
+      echo "claude $*" > "$meta_dir/entrypoint"
+    fi
+
+    if [[ -n "''${ANTHROPIC_API_KEY:-}" ]]; then
+      echo "$ANTHROPIC_API_KEY" > "$meta_dir/apikey"
+    fi
+
+    # Share project, metadata, and auth dirs via 9p
+    qemu_extra=()
+    qemu_extra+=(-virtfs "local,path=$project_dir,mount_tag=project_share,security_model=none,id=project_share")
+    qemu_extra+=(-virtfs "local,path=$meta_dir,mount_tag=claude_meta,security_model=none,id=claude_meta,readonly=on")
+
+    host_claude_dir="''${HOME}/.claude"
+    if [[ -d "$host_claude_dir" ]]; then
+      qemu_extra+=(-virtfs "local,path=$host_claude_dir,mount_tag=claude_auth,security_model=none,id=claude_auth")
+    fi
+
+    export QEMU_OPTS="''${qemu_extra[*]}"
+    exec ${vmScript}/bin/run-claude-sandbox-vm
+  '';
+}

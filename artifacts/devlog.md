@@ -26,3 +26,20 @@ Built `nix/backends/container.nix` using `nixosSystem` to evaluate a NixOS confi
 
 Added D-Bus session bus address env var, host config forwarding (DNS, TLS, fonts, timezone).
 
+## 2026-02-17 — QEMU VM backend
+
+Built `nix/backends/vm.nix` — full NixOS VM with QEMU, 4GB RAM, 4 cores.
+
+Design: claude-code runs on serial console (user's terminal), Chromium renders in QEMU GTK window via Xorg+openbox. Project dir shared via 9p virtfs.
+
+**Problem**: No serial output from VM — QEMU wasn't started with `-serial` flag.
+**Fix**: Added `-serial stdio` to `virtualisation.qemu.options`.
+
+**Problem**: Serial console wasn't primary — Linux `console=` had `tty0` last.
+**Fix**: Reversed order via `virtualisation.qemu.consoles = [ "tty0" "ttyS0,115200n8" ]`. See skill file: `nixos-qemu-vm-serial-console-setup.md`.
+
+**Problem**: Custom systemd service on ttyS0 had TTY management issues (TTYReset, ordering).
+**Fix**: Replaced with NixOS built-in `services.getty.autologinUser` + `environment.interactiveShellInit` that checks `$(tty) == /dev/ttyS0`.
+
+Tested: Chromium headless DOM dump works, uid=1000, version confirmed.
+
