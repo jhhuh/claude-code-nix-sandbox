@@ -133,3 +133,13 @@ Key details:
 - Wired into flake `checks` as `manager-test`, runnable via `nix build .#checks.x86_64-linux.manager-test -L`
 - Noted deprecation warning: `xorg.xorgserver` → `xorg-server` (in `package.nix`, not fixed here)
 
+## 2026-02-17 — Documentation site with mdBook + GitHub Pages
+
+Added a full documentation site using mdBook:
+
+- `docs/` directory with `book.toml`, `SUMMARY.md`, and 14 content pages covering all backends, remote manager (CLI, API, dashboard), NixOS modules, customization, and architecture
+- `packages.docs` in flake.nix — `stdenv.mkDerivation` with `mdbook build`
+- `.github/workflows/docs.yml` — builds via Nix, deploys to GitHub Pages using `actions/deploy-pages`
+- Content derived from README + source code reading (backends, modules, manager Rust source, CLI)
+- Verified: `nix build .#docs` succeeds, `nix flake check` passes (docs included in checks)
+

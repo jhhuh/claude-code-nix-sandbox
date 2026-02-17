@@ -1,0 +1,9 @@
+[book]
+title = "claude-code-nix-sandbox"
+description = "Pure Nix machinery for launching sandboxed Claude Code sessions with Chromium browser access"
+authors = ["jhhuh"]
+language = "en"
+
+[output.html]
+git-repository-url = "https://github.com/jhhuh/claude-code-nix-sandbox"
+edit-url-template = "https://github.com/jhhuh/claude-code-nix-sandbox/edit/master/docs/{path}"
