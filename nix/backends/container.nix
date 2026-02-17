@@ -208,7 +208,8 @@ writeShellApplication {
     # Host config forwarding (DNS, TLS, fonts, timezone, locale)
     host_cfg_args=()
     for f in /etc/resolv.conf /etc/hosts /etc/ssl /etc/ca-certificates /etc/pki \
-             /etc/fonts /etc/localtime /etc/zoneinfo /etc/locale.conf; do
+             /etc/fonts /etc/localtime /etc/zoneinfo /etc/locale.conf \
+             /etc/nix /etc/static /etc/nsswitch.conf; do
       if [[ -e "$f" ]]; then
         host_cfg_args+=("--bind-ro=$f")
       fi
