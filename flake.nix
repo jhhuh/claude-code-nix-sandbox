@@ -66,6 +66,15 @@
 
           # Local CLI for managing remote sandboxes via SSH
           cli = pkgs.callPackage ./scripts/claude-remote.nix { };
+
+          # Documentation site (mdBook)
+          docs = pkgs.stdenv.mkDerivation {
+            name = "claude-sandbox-docs";
+            src = ./docs;
+            nativeBuildInputs = [ pkgs.mdbook ];
+            buildPhase = "mdbook build";
+            installPhase = "cp -r book $out";
+          };
         });
 
       # NixOS modules
