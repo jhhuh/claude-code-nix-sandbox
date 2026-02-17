@@ -37,7 +37,8 @@ nix flake check                           # Validate flake outputs and run check
 nix build                                 # Build default package (bubblewrap sandbox)
 nix build .#no-network                    # Build with network isolation
 nix flake show                            # List all flake outputs
-./result/bin/claude-sandbox <project-dir>  # Run sandboxed Claude Code
+./result/bin/claude-sandbox <project-dir>           # Run sandboxed Claude Code
+./result/bin/claude-sandbox --shell <project-dir>   # Drop into bash inside sandbox
 ```
 
 ## Conventions
