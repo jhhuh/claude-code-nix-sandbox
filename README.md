@@ -44,6 +44,8 @@ nix build github:jhhuh/claude-code-nix-sandbox#vm
 
 Requires `ANTHROPIC_API_KEY` in your environment, or an existing `~/.claude` login (auto-mounted).
 
+Git push/pull works inside all sandboxes — `~/.gitconfig`, `~/.config/git/`, `~/.ssh/`, and `SSH_AUTH_SOCK` are forwarded read-only. Nix commands work too (`NIX_REMOTE=daemon`).
+
 ## What's Sandboxed
 
 | Resource | Bubblewrap | Container | VM |
@@ -59,6 +61,8 @@ Requires `ANTHROPIC_API_KEY` in your environment, or an existing `~/.claude` log
 | GPU (DRI) | Forwarded | Forwarded | Virtio VGA |
 | D-Bus | Forwarded | Forwarded | Isolated |
 | SSH agent | Forwarded | Forwarded | Isolated |
+| Nix commands | Via daemon | Via daemon | Local store |
+| Locale | Forwarded | Forwarded | NixOS default |
 | Kernel | Shared | Shared | Separate |
 
 ## Packages
