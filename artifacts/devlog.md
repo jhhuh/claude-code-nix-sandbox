@@ -155,3 +155,12 @@ Added config file loading to `claude-remote` so users don't need to export env v
 - Updated help text to show config file location and example
 - Updated mdBook docs (`docs/src/remote-manager/cli.md`) with config file section
 - Nix escaping gotcha: `${...}` in comments inside `''` strings is still interpolated by Nix — must use `''${` escape even in bash comments
+
+## 2026-02-18 — Switch claude-code to sadjow/claude-code-nix
+
+Replaced nixpkgs' `claude-code` with the package from `github:sadjow/claude-code-nix`.
+
+- Added `claude-code-nix` flake input with `inputs.nixpkgs.follows = "nixpkgs"` to share the same nixpkgs
+- Applied `claude-code-nix.overlays.default` to `pkgsFor` so `pkgs.claude-code` resolves from the flake for bubblewrap backend (via `callPackage`)
+- Also injected the overlay into every `nixosSystem` call (container and VM backends) via `nixpkgs.overlays` module — without this, those NixOS evaluations would still pull `claude-code` from upstream nixpkgs
+- Backend `.nix` files unchanged — they still reference `pkgs.claude-code`, which the overlay shadows
