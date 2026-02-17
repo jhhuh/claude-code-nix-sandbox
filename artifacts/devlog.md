@@ -111,3 +111,12 @@ ShellCheck caught unquoted `$real_uid` inside array assignments — all instance
 
 **Documentation**: README updated with git/SSH/nix/locale forwarding details, `extraPackages`/`extraModules` customization section, NixOS module examples.
 
+## 2026-02-17 — Add project sync to claude-remote CLI
+
+Added `sync` and `watch` commands to `claude-remote` for syncing project directories to/from the remote server. Also added `--sync` flag to `create` for one-shot sync before sandbox creation.
+
+- `sync <dir> [remote]`: one-shot rsync local→remote, excludes `.git/`, respects `.gitignore`
+- `watch <dir> [remote]`: continuous bidirectional sync — fswatch for local→remote (with event debouncing), background rsync loop every 2s for remote→local (picks up Claude's modifications)
+- `create --sync`: runs one-shot sync before calling the create API
+- Added `rsync` and `fswatch` to `runtimeInputs` in `scripts/claude-remote.nix`
+

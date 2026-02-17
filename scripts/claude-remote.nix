@@ -5,11 +5,13 @@
   curl,
   jq,
   tmux,
+  rsync,
+  fswatch,
 }:
 
 writeShellApplication {
   name = "claude-remote";
-  runtimeInputs = [ openssh curl jq tmux ];
+  runtimeInputs = [ openssh curl jq tmux rsync fswatch ];
 
   text = ''
     set -euo pipefail
@@ -42,18 +44,44 @@ writeShellApplication {
       ssh $SSH_OPTS "$HOST" "$cmd"
     }
 
+    # Helper: rsync local→remote
+    do_rsync_to_remote() {
+      local src="$1" dst="$2"
+      rsync -az --delete --exclude='.git' --filter=':- .gitignore' \
+        -e "ssh $SSH_OPTS" "$src/" "$HOST:$dst/"
+    }
+
+    # Helper: rsync remote→local
+    do_rsync_from_remote() {
+      local remote_dir="$1" local_dir="$2"
+      rsync -az --delete --exclude='.git' --filter=':- .gitignore' \
+        -e "ssh $SSH_OPTS" "$HOST:$remote_dir/" "$local_dir/"
+    }
+
     cmd="''${1:-help}"
     shift || true
 
     case "$cmd" in
       create)
         if [[ $# -lt 3 ]]; then
-          echo "Usage: claude-remote create <name> <backend> <project-dir> [--no-network]" >&2
+          echo "Usage: claude-remote create <name> <backend> <project-dir> [--no-network] [--sync]" >&2
           exit 1
         fi
         name="$1"; backend="$2"; project_dir="$3"; shift 3
         network=true
-        if [[ "''${1:-}" == "--no-network" ]]; then network=false; fi
+        do_sync=false
+        while [[ $# -gt 0 ]]; do
+          case "$1" in
+            --no-network) network=false ;;
+            --sync) do_sync=true ;;
+          esac
+          shift
+        done
+        if [[ "$do_sync" == "true" ]]; then
+          echo "Syncing $project_dir → $HOST:$project_dir ..."
+          do_rsync_to_remote "$project_dir" "$project_dir"
+          echo "Sync complete."
+        fi
         payload=$(jq -n \
           --arg name "$name" \
           --arg backend "$backend" \
@@ -134,6 +162,64 @@ writeShellApplication {
         ssh $SSH_OPTS -N -L "$PORT:localhost:$PORT" "$HOST"
         ;;
 
+      sync)
+        if [[ $# -lt 1 ]]; then
+          echo "Usage: claude-remote sync <local-dir> [remote-dir]" >&2
+          exit 1
+        fi
+        local_dir="$1"
+        remote_dir="''${2:-$local_dir}"
+        echo "Syncing $local_dir → $HOST:$remote_dir ..."
+        do_rsync_to_remote "$local_dir" "$remote_dir"
+        echo "Sync complete."
+        ;;
+
+      watch)
+        if [[ $# -lt 1 ]]; then
+          echo "Usage: claude-remote watch <local-dir> [remote-dir]" >&2
+          exit 1
+        fi
+        local_dir="$1"
+        remote_dir="''${2:-$local_dir}"
+
+        # Initial sync local→remote
+        echo "Initial sync $local_dir → $HOST:$remote_dir ..."
+        do_rsync_to_remote "$local_dir" "$remote_dir"
+        echo "Initial sync complete. Watching for changes..."
+
+        # Cleanup on exit
+        cleanup() {
+          echo ""
+          echo "Stopping watch..."
+          kill "$REMOTE_SYNC_PID" 2>/dev/null || true
+          wait "$REMOTE_SYNC_PID" 2>/dev/null || true
+          exit 0
+        }
+        trap cleanup INT TERM
+
+        # Background: remote→local sync every 2s
+        (
+          while true; do
+            sleep 2
+            do_rsync_from_remote "$remote_dir" "$local_dir" 2>/dev/null && \
+              echo "[remote→local] synced $(date +%H:%M:%S)" || true
+          done
+        ) &
+        REMOTE_SYNC_PID=$!
+
+        # Foreground: watch local→remote via fswatch with debounce
+        fswatch -r --event Created --event Updated --event Removed --event Renamed \
+          --exclude='\.git/' "$local_dir" | while read -r _event; do
+          # Coalesce: drain any queued events (100ms window)
+          while read -r -t 0.1 _extra; do :; done
+          echo "[local→remote] syncing $(date +%H:%M:%S) ..."
+          do_rsync_to_remote "$local_dir" "$remote_dir"
+        done
+
+        # If fswatch exits, clean up
+        cleanup
+        ;;
+
       help|--help|-h)
         echo "claude-remote — manage sandboxes on a remote server"
         echo ""
@@ -143,12 +229,14 @@ writeShellApplication {
         echo "  CLAUDE_REMOTE_SSH_OPTS  Extra SSH options"
         echo ""
         echo "Commands:"
-        echo "  create <name> <backend> <dir> [--no-network]"
+        echo "  create <name> <backend> <dir> [--no-network] [--sync]"
         echo "  list                  List sandboxes"
         echo "  attach <id>           Attach to sandbox tmux session"
         echo "  stop <id>             Stop a sandbox"
         echo "  delete <id>           Delete a sandbox"
         echo "  metrics [id]          Show system (and sandbox) metrics"
+        echo "  sync <dir> [remote]   One-shot rsync local→remote"
+        echo "  watch <dir> [remote]  Continuous bidirectional sync"
         echo "  ui                    Forward web dashboard via SSH tunnel"
         ;;
 
