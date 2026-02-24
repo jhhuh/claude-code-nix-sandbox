@@ -177,3 +177,20 @@ Claude Code stores sessions in `~/.claude/projects/<encoded-path>/` where `<enco
 
 **VM**: 9p mount points are baked at NixOS build time, so runtime fixups are needed. Launcher writes `$HOME` and `$project_dir` to meta dir. Added passwordless sudo (`wheel` group) for the sandbox user (VM is already fully isolated). `interactiveShellInit` reads host paths from `/mnt/meta/`, creates real home dir, symlinks dotfiles from `/home/sandbox/` to `$host_home/`, and bind-mounts `/project` to `$host_project`. Bind mount (not symlink) for project dir because `getcwd()` resolves symlinks but not bind mounts.
 
+## 2026-02-24 — Knowledge catch-up: skill extraction and session tooling
+
+Reviewed all git history and Claude Code session files to identify undocumented patterns. The devlog was already current with all commits — no missing entries.
+
+**Session summarizer tool**: Built `artifacts/tools/session-summarizer.sh` — a jq/bash script that extracts human-readable conversation from Claude Code JSONL session files without loading multi-MB tool results into context. Modes: `--overview` (compact conversation), `--user-only` (just human messages), `--tools` (tool use frequency), `--commits` (git commits made). Key insight: session JSONL has `user`/`assistant`/`system`/`progress`/`queue-operation`/`file-history-snapshot` types; only `user` and `assistant` carry useful content, and assistant `tool_use` blocks are the bulk of file size.
+
+**New skill files extracted** (7 total, from code patterns and session history):
+- `nix-writeShellApplication-escaping-and-shellcheck.md` — the `''${` escape for bash vars in Nix strings, SC2155 (declare/assign separately), SC2029 (SSH vars)
+- `vm-9p-runtime-path-fixup-for-session-continuity.md` — meta dir + bind-mount pattern for preserving host paths when 9p mounts are baked at build time
+- `nix-overlay-injection-into-nixosSystem-calls.md` — overlays applied to `pkgsFor` don't propagate to `nixosSystem` calls; must inject via `nixpkgs.overlays` module
+- `nixos-vm-integration-test-with-stub-services.md` — `pkgs.testers.nixosTest` (not `pkgs.nixosTest`), stub backends, system user shell gotcha
+- `ssh-remote-cli-printf-q-escaping.md` — `printf '%q'` for SSH argument escaping
+- `bubblewrap-dynamic-bash-arrays-for-optional-flags.md` — bash arrays for conditional bwrap flags (empty arrays expand to nothing)
+- `claude-code-session-jsonl-extraction.md` — JSONL structure, jq extraction patterns, the summarizer tool
+
+Updated CLAUDE.md skill files section with all new entries.
+
