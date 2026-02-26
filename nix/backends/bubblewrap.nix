@@ -147,11 +147,11 @@ writeShellApplication {
       claude_auth_args+=(--bind "''${HOME}/.claude.json" "$sandbox_home/.claude.json")
     fi
 
-    # Chromium profile persistence (extensions, logins, settings)
+    # Per-project Chromium profile (isolates CDP port and session per sandbox)
     chromium_args=()
-    if [[ -d "''${HOME}/.config/chromium" ]]; then
-      chromium_args+=(--bind "''${HOME}/.config/chromium" "$sandbox_home/.config/chromium")
-    fi
+    chromium_profile="$project_dir/.config/chromium"
+    mkdir -p "$chromium_profile"
+    chromium_args+=(--bind "$chromium_profile" "$sandbox_home/.config/chromium")
 
     # Git and SSH forwarding (read-only)
     git_args=()

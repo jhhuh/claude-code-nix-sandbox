@@ -181,12 +181,13 @@ writeShellApplication {
       claude_auth_args+=(--bind="$real_home/.claude.json":"$real_home/.claude.json")
     fi
 
-    # Chromium profile persistence (extensions, logins, settings)
+    # Per-project Chromium profile (isolates CDP port and session per container)
     chromium_args=()
-    if [[ -d "$real_home/.config/chromium" ]]; then
-      mkdir -p "$container_root$real_home/.config/chromium"
-      chromium_args+=(--bind="$real_home/.config/chromium":"$real_home/.config/chromium")
-    fi
+    chromium_profile="$project_dir/.config/chromium"
+    mkdir -p "$chromium_profile"
+    chown "$real_uid:$real_gid" "$chromium_profile"
+    mkdir -p "$container_root$real_home/.config/chromium"
+    chromium_args+=(--bind="$chromium_profile":"$real_home/.config/chromium")
 
     # Git and SSH forwarding (read-only)
     git_args=()
