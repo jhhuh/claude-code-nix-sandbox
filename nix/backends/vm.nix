@@ -118,6 +118,10 @@ let
                   ln -sfn "/home/sandbox/$item" "$host_home/$item"
                 fi
               done
+              # Claude config file from metadata
+              if [[ -f /mnt/meta/claude.json ]]; then
+                cp /mnt/meta/claude.json "$host_home/.claude.json"
+              fi
             fi
             if [[ -f /mnt/meta/host_project ]]; then
               host_project=$(cat /mnt/meta/host_project)
@@ -225,6 +229,10 @@ writeShellApplication {
     # Pass host paths so VM can reconstruct them
     echo "$HOME" > "$meta_dir/host_home"
     echo "$project_dir" > "$meta_dir/host_project"
+
+    if [[ -f "''${HOME}/.claude.json" ]]; then
+      cp "''${HOME}/.claude.json" "$meta_dir/claude.json"
+    fi
 
     # Share project, metadata, and auth dirs via 9p
     qemu_extra=()

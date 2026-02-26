@@ -165,11 +165,14 @@ writeShellApplication {
       audio_args+=("--bind-ro=$runtime_dir/pulse:/run/user/$real_uid/pulse")
     fi
 
-    # Claude auth persistence
+    # Claude auth and config persistence
     claude_auth_args=()
     host_claude_dir="$real_home/.claude"
     if [[ -d "$host_claude_dir" ]]; then
       claude_auth_args+=(--bind="$host_claude_dir":"$real_home/.claude")
+    fi
+    if [[ -f "$real_home/.claude.json" ]]; then
+      claude_auth_args+=(--bind-ro="$real_home/.claude.json":"$real_home/.claude.json")
     fi
 
     # Git and SSH forwarding (read-only)

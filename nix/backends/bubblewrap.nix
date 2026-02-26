@@ -145,11 +145,14 @@ writeShellApplication {
       xdg_runtime_args+=(--dir "$XDG_RUNTIME_DIR")
     fi
 
-    # Claude auth persistence: bind-mount ~/.claude if it exists
+    # Claude auth and config persistence
     claude_auth_args=()
     host_claude_dir="''${HOME}/.claude"
     if [[ -d "$host_claude_dir" ]]; then
       claude_auth_args+=(--bind "$host_claude_dir" "$sandbox_home/.claude")
+    fi
+    if [[ -f "''${HOME}/.claude.json" ]]; then
+      claude_auth_args+=(--ro-bind "''${HOME}/.claude.json" "$sandbox_home/.claude.json")
     fi
 
     # Git and SSH forwarding (read-only)
