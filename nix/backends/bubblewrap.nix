@@ -148,11 +148,10 @@ writeShellApplication {
     # Claude auth and config persistence
     claude_auth_args=()
     host_claude_dir="''${HOME}/.claude"
-    if [[ -d "$host_claude_dir" ]]; then
-      claude_auth_args+=(--bind "$host_claude_dir" "$sandbox_home/.claude")
-    fi
+    mkdir -p "$host_claude_dir"
+    claude_auth_args+=(--bind "$host_claude_dir" "$sandbox_home/.claude")
     if [[ -f "''${HOME}/.claude.json" ]]; then
-      claude_auth_args+=(--ro-bind "''${HOME}/.claude.json" "$sandbox_home/.claude.json")
+      claude_auth_args+=(--bind "''${HOME}/.claude.json" "$sandbox_home/.claude.json")
     fi
 
     # Git and SSH forwarding (read-only)
