@@ -89,24 +89,11 @@ writeShellApplication {
       fi
     fi
 
-    # D-Bus forwarding (needed by Chromium)
+    # D-Bus forwarding — only the system bus.
+    # Session bus is intentionally NOT forwarded: sharing it lets Chromium
+    # instances across sandboxes discover each other via org.chromium.Chromium,
+    # causing the second sandbox's Chrome to hijack the first's session.
     dbus_args=()
-    # Session bus via DBUS_SESSION_BUS_ADDRESS
-    if [[ -n "''${DBUS_SESSION_BUS_ADDRESS:-}" ]]; then
-      dbus_path=""
-      if [[ "$DBUS_SESSION_BUS_ADDRESS" == unix:path=* ]]; then
-        dbus_path="''${DBUS_SESSION_BUS_ADDRESS#unix:path=}"
-        dbus_path="''${dbus_path%%;*}"
-      fi
-      if [[ -n "$dbus_path" ]] && [[ -e "$dbus_path" ]]; then
-        dbus_args+=(--ro-bind "$dbus_path" "$dbus_path")
-      fi
-    fi
-    # XDG_RUNTIME_DIR/bus (user session bus fallback)
-    if [[ -n "''${XDG_RUNTIME_DIR:-}" ]] && [[ -S "$XDG_RUNTIME_DIR/bus" ]]; then
-      dbus_args+=(--ro-bind "$XDG_RUNTIME_DIR/bus" "$XDG_RUNTIME_DIR/bus")
-    fi
-    # System bus
     if [[ -S /run/dbus/system_bus_socket ]]; then
       dbus_args+=(--ro-bind /run/dbus/system_bus_socket /run/dbus/system_bus_socket)
     fi
@@ -181,9 +168,7 @@ writeShellApplication {
     if [[ -n "''${XAUTHORITY:-}" ]]; then
       env_args+=(--setenv XAUTHORITY "$XAUTHORITY")
     fi
-    if [[ -n "''${DBUS_SESSION_BUS_ADDRESS:-}" ]]; then
-      env_args+=(--setenv DBUS_SESSION_BUS_ADDRESS "$DBUS_SESSION_BUS_ADDRESS")
-    fi
+    # DBUS_SESSION_BUS_ADDRESS intentionally not forwarded (see D-Bus comment above)
     if [[ -n "''${ANTHROPIC_API_KEY:-}" ]]; then
       env_args+=(--setenv ANTHROPIC_API_KEY "$ANTHROPIC_API_KEY")
     fi
@@ -240,6 +225,8 @@ writeShellApplication {
       --ro-bind-try /etc/nsswitch.conf /etc/nsswitch.conf \
       --ro-bind-try /etc/nix /etc/nix \
       --ro-bind-try /etc/static /etc/static \
+      --dir /usr/bin \
+      --ro-bind-try /usr/bin/env /usr/bin/env \
       "''${x11_args[@]}" \
       "''${xauth_args[@]}" \
       "''${wayland_args[@]}" \

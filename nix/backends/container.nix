@@ -81,7 +81,10 @@ writeShellApplication {
     machine_name="claude-sandbox-''${container_root##*.}"
     trap 'rm -rf "$container_root"' EXIT
 
-    mkdir -p "$container_root"/{etc,var/lib,run,tmp}
+    mkdir -p "$container_root"/{etc,var/lib,run,tmp,usr/bin}
+
+    # /usr/bin/env for shebang compatibility
+    ln -s "${toplevel}/sw/bin/env" "$container_root/usr/bin/env"
 
     # Stub files required by nspawn
     touch "$container_root/etc/os-release"
@@ -133,13 +136,10 @@ writeShellApplication {
       wayland_args+=("--setenv=XDG_RUNTIME_DIR=/run/user/$real_uid")
     fi
 
-    # D-Bus forwarding
+    # D-Bus forwarding — only the system bus.
+    # Session bus is intentionally NOT forwarded: sharing it lets Chromium
+    # instances across containers discover each other via D-Bus singleton.
     dbus_args=()
-    if [[ -S "$runtime_dir/bus" ]]; then
-      dbus_args+=("--bind-ro=$runtime_dir/bus:/run/user/$real_uid/bus")
-      dbus_args+=("--setenv=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$real_uid/bus")
-      dbus_args+=("--setenv=XDG_RUNTIME_DIR=/run/user/$real_uid")
-    fi
     if [[ -S /run/dbus/system_bus_socket ]]; then
       dbus_args+=(--bind-ro=/run/dbus/system_bus_socket)
     fi
