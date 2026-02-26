@@ -90,7 +90,7 @@ writeShellApplication {
     # Resolve real user's UID/GID/home/name (handles sudo)
     real_uid="$(id -u "''${SUDO_USER:-''${USER}}")"
     real_gid="$(id -g "''${SUDO_USER:-''${USER}}")"
-    real_home="''${SUDO_HOME:-''${HOME}}"
+    real_home="$(getent passwd "''${SUDO_USER:-''${USER}}" | cut -d: -f6)"
     real_user="''${SUDO_USER:-''${USER}}"
 
     # Create sandbox user with the real user's UID/GID so file ownership matches
