@@ -57,14 +57,20 @@ writeShellApplication {
     fi
 
     shell_mode=false
-    if [[ "''${1:-}" == "--shell" ]]; then
-      shell_mode=true
-      shift
-    fi
+    gh_token=false
+    while [[ "''${1:-}" == --* ]]; do
+      case "''${1:-}" in
+        --shell) shell_mode=true; shift ;;
+        --gh-token) gh_token=true; shift ;;
+        --help|-h) break ;;
+        *) echo "Unknown option: $1" >&2; exit 1 ;;
+      esac
+    done
 
     if [[ $# -lt 1 ]] || [[ "''${1:-}" == "--help" ]] || [[ "''${1:-}" == "-h" ]]; then
-      echo "Usage: sudo claude-sandbox-container [--shell] <project-dir> [claude args...]" >&2
-      echo "  --shell  Drop into bash instead of launching claude" >&2
+      echo "Usage: sudo claude-sandbox-container [--shell] [--gh-token] <project-dir> [claude args...]" >&2
+      echo "  --shell     Drop into bash instead of launching claude" >&2
+      echo "  --gh-token  Forward GH_TOKEN/GITHUB_TOKEN env vars into container" >&2
       exit 1
     fi
 
@@ -175,6 +181,13 @@ writeShellApplication {
       claude_auth_args+=(--bind="$real_home/.claude.json":"$real_home/.claude.json")
     fi
 
+    # Chromium profile persistence (extensions, logins, settings)
+    chromium_args=()
+    if [[ -d "$real_home/.config/chromium" ]]; then
+      mkdir -p "$container_root$real_home/.config/chromium"
+      chromium_args+=(--bind="$real_home/.config/chromium":"$real_home/.config/chromium")
+    fi
+
     # Git and SSH forwarding (read-only)
     git_args=()
     if [[ -f "$real_home/.gitconfig" ]]; then
@@ -191,6 +204,21 @@ writeShellApplication {
     if [[ -n "''${SSH_AUTH_SOCK:-}" ]] && [[ -e "$SSH_AUTH_SOCK" ]]; then
       ssh_agent_args+=("--bind-ro=$SSH_AUTH_SOCK:/run/user/$real_uid/ssh-agent.sock")
       ssh_agent_args+=("--setenv=SSH_AUTH_SOCK=/run/user/$real_uid/ssh-agent.sock")
+    fi
+
+    # GitHub CLI config (always mounted, like gitconfig)
+    gh_args=()
+    if [[ -d "$real_home/.config/gh" ]]; then
+      mkdir -p "$container_root$real_home/.config/gh"
+      gh_args+=(--bind-ro="$real_home/.config/gh":"$real_home/.config/gh")
+    fi
+    if [[ "$gh_token" == true ]]; then
+      if [[ -n "''${GH_TOKEN:-}" ]]; then
+        gh_args+=("--setenv=GH_TOKEN=$GH_TOKEN")
+      fi
+      if [[ -n "''${GITHUB_TOKEN:-}" ]]; then
+        gh_args+=("--setenv=GITHUB_TOKEN=$GITHUB_TOKEN")
+      fi
     fi
 
     # Network
@@ -249,7 +277,9 @@ writeShellApplication {
       "''${gpu_args[@]}" \
       "''${audio_args[@]}" \
       "''${claude_auth_args[@]}" \
+      "''${chromium_args[@]}" \
       "''${git_args[@]}" \
+      "''${gh_args[@]}" \
       "''${ssh_agent_args[@]}" \
       "''${network_args[@]}" \
       "''${api_key_args[@]}" \

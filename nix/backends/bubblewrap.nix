@@ -45,14 +45,20 @@ writeShellApplication {
 
   text = ''
     shell_mode=false
-    if [[ "''${1:-}" == "--shell" ]]; then
-      shell_mode=true
-      shift
-    fi
+    gh_token=false
+    while [[ "''${1:-}" == --* ]]; do
+      case "''${1:-}" in
+        --shell) shell_mode=true; shift ;;
+        --gh-token) gh_token=true; shift ;;
+        --help|-h) break ;;
+        *) echo "Unknown option: $1" >&2; exit 1 ;;
+      esac
+    done
 
     if [[ $# -lt 1 ]] || [[ "''${1:-}" == "--help" ]] || [[ "''${1:-}" == "-h" ]]; then
-      echo "Usage: claude-sandbox [--shell] <project-dir> [claude args...]" >&2
-      echo "  --shell  Drop into bash instead of launching claude" >&2
+      echo "Usage: claude-sandbox [--shell] [--gh-token] <project-dir> [claude args...]" >&2
+      echo "  --shell     Drop into bash instead of launching claude" >&2
+      echo "  --gh-token  Forward GH_TOKEN/GITHUB_TOKEN env vars into sandbox" >&2
       exit 1
     fi
 
@@ -141,6 +147,12 @@ writeShellApplication {
       claude_auth_args+=(--bind "''${HOME}/.claude.json" "$sandbox_home/.claude.json")
     fi
 
+    # Chromium profile persistence (extensions, logins, settings)
+    chromium_args=()
+    if [[ -d "''${HOME}/.config/chromium" ]]; then
+      chromium_args+=(--bind "''${HOME}/.config/chromium" "$sandbox_home/.config/chromium")
+    fi
+
     # Git and SSH forwarding (read-only)
     git_args=()
     if [[ -f "$HOME/.gitconfig" ]]; then
@@ -157,6 +169,13 @@ writeShellApplication {
       git_args+=(--ro-bind "$SSH_AUTH_SOCK" "$SSH_AUTH_SOCK")
     fi
 
+    # GitHub CLI config (always mounted, like gitconfig)
+    gh_args=()
+    if [[ -d "''${HOME}/.config/gh" ]]; then
+      gh_args+=(--dir "$sandbox_home/.config/gh")
+      gh_args+=(--ro-bind "''${HOME}/.config/gh" "$sandbox_home/.config/gh")
+    fi
+
     # Conditional env vars (only set when non-empty on host)
     env_args=()
     if [[ -n "''${DISPLAY:-}" ]]; then
@@ -169,6 +188,14 @@ writeShellApplication {
       env_args+=(--setenv XAUTHORITY "$XAUTHORITY")
     fi
     # DBUS_SESSION_BUS_ADDRESS intentionally not forwarded (see D-Bus comment above)
+    if [[ "$gh_token" == true ]]; then
+      if [[ -n "''${GH_TOKEN:-}" ]]; then
+        env_args+=(--setenv GH_TOKEN "$GH_TOKEN")
+      fi
+      if [[ -n "''${GITHUB_TOKEN:-}" ]]; then
+        env_args+=(--setenv GITHUB_TOKEN "$GITHUB_TOKEN")
+      fi
+    fi
     if [[ -n "''${ANTHROPIC_API_KEY:-}" ]]; then
       env_args+=(--setenv ANTHROPIC_API_KEY "$ANTHROPIC_API_KEY")
     fi
@@ -208,7 +235,9 @@ writeShellApplication {
       --dir "$sandbox_home" \
       --dir "$sandbox_home/.config" \
       "''${claude_auth_args[@]}" \
+      "''${chromium_args[@]}" \
       "''${git_args[@]}" \
+      "''${gh_args[@]}" \
       --bind "$project_dir" "$project_dir" \
       --ro-bind-try /etc/resolv.conf /etc/resolv.conf \
       --ro-bind-try /etc/hosts /etc/hosts \
