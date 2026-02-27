@@ -1,10 +1,11 @@
 # systemd-nspawn container backend for Claude Code + Chromium
 #
 # Usage: claude-sandbox-container [--shell] <project-dir> [claude args...]
+#        claude-sandbox-container bind <project-dir> <host-path> [container-path]
 #
 # Launches a NixOS container via systemd-nspawn with claude-code and
-# chromium. Requires root (sudo). Provides stronger isolation than
-# bubblewrap: separate PID, mount, IPC, and optionally network namespaces.
+# chromium. Auto-escalates to root via sudo. Provides stronger isolation
+# than bubblewrap: separate PID, mount, IPC, and optionally network namespaces.
 {
   lib,
   writeShellApplication,
@@ -32,6 +33,7 @@ let
           claude-code
           chromium
           git
+          gh
           openssh
           coreutils
           bash
@@ -52,8 +54,32 @@ writeShellApplication {
 
   text = ''
     if [[ "$(id -u)" -ne 0 ]]; then
-      echo "Error: systemd-nspawn requires root. Run with sudo." >&2
-      exit 1
+      exec sudo --preserve-env "$0" "$@"
+    fi
+
+    # Subcommand: bind — dynamically bind-mount a host dir into a running container
+    if [[ "''${1:-}" == "bind" ]]; then
+      shift
+      if [[ $# -lt 2 ]]; then
+        echo "Usage: claude-sandbox-container bind <project-dir> <host-path> [container-path]" >&2
+        exit 1
+      fi
+      bind_project="$(realpath "$1")"
+      bind_source="$(realpath "$2")"
+      bind_dest="''${3:-$bind_source}"
+      machine_file="$bind_project/.config/claude-sandbox-machine"
+      if [[ ! -f "$machine_file" ]]; then
+        echo "Error: no running container found for $bind_project" >&2
+        exit 1
+      fi
+      machine_name="$(cat "$machine_file")"
+      if ! machinectl show "$machine_name" &>/dev/null; then
+        echo "Error: container $machine_name is not running" >&2
+        rm -f "$machine_file"
+        exit 1
+      fi
+      machinectl bind "$machine_name" "$bind_source" "$bind_dest"
+      exit $?
     fi
 
     shell_mode=false
@@ -68,9 +94,14 @@ writeShellApplication {
     done
 
     if [[ $# -lt 1 ]] || [[ "''${1:-}" == "--help" ]] || [[ "''${1:-}" == "-h" ]]; then
-      echo "Usage: sudo claude-sandbox-container [--shell] [--gh-token] <project-dir> [claude args...]" >&2
+      echo "Usage: claude-sandbox-container [--shell] [--gh-token] <project-dir> [claude args...]" >&2
+      echo "       claude-sandbox-container bind <project-dir> <host-path> [container-path]" >&2
+      echo "" >&2
+      echo "Automatically escalates to root via sudo if needed." >&2
+      echo "" >&2
       echo "  --shell     Drop into bash instead of launching claude" >&2
       echo "  --gh-token  Forward GH_TOKEN/GITHUB_TOKEN env vars into container" >&2
+      echo "  bind        Bind-mount a host directory into a running container" >&2
       exit 1
     fi
 
@@ -96,7 +127,9 @@ writeShellApplication {
     # Create ephemeral container root (suffix used for unique machine name)
     container_root="$(mktemp -d /tmp/claude-nspawn.XXXXXX)"
     machine_name="claude-sandbox-''${container_root##*.}"
-    trap 'rm -rf "$container_root"' EXIT
+    mkdir -p "$project_dir/.config"
+    echo "$machine_name" > "$project_dir/.config/claude-sandbox-machine"
+    trap 'rm -rf "$container_root"; rm -f "$project_dir/.config/claude-sandbox-machine"' EXIT
 
     mkdir -p "$container_root"/{etc,var/lib,run,tmp,usr/bin}
 
