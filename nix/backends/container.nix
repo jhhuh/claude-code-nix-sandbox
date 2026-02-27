@@ -192,13 +192,20 @@ writeShellApplication {
       claude_auth_args+=(--bind="$real_home/.claude.json":"$real_home/.claude.json")
     fi
 
-    # Per-project Chromium profile (isolates CDP port and session per container)
-    chromium_args=()
+    # Per-project Chromium profile with unique user-data-dir path.
+    # See bubblewrap.nix comment for why the real project path is needed.
     chromium_profile="$project_dir/.config/chromium"
     mkdir -p "$chromium_profile"
     chown "$real_uid:$real_gid" "$chromium_profile"
-    mkdir -p "$container_root$real_home/.config/chromium"
-    chromium_args+=(--bind="$chromium_profile":"$real_home/.config/chromium")
+    chromium_wrapper="$project_dir/.config/chromium-wrapper"
+    mkdir -p "$chromium_wrapper"
+    cat > "$chromium_wrapper/chromium" << WEOF
+#!/usr/bin/env sh
+exec ${toplevel}/sw/bin/chromium --user-data-dir="$chromium_profile" "\$@"
+WEOF
+    chmod +x "$chromium_wrapper/chromium"
+    cp "$chromium_wrapper/chromium" "$chromium_wrapper/chromium-browser"
+    chown -R "$real_uid:$real_gid" "$chromium_wrapper"
 
     # Git and SSH forwarding (read-only)
     git_args=()
@@ -289,7 +296,6 @@ writeShellApplication {
       "''${gpu_args[@]}" \
       "''${audio_args[@]}" \
       "''${claude_auth_args[@]}" \
-      "''${chromium_args[@]}" \
       "''${git_args[@]}" \
       "''${gh_args[@]}" \
       "''${ssh_agent_args[@]}" \
@@ -298,7 +304,7 @@ writeShellApplication {
       "''${entrypoint_args[@]}" \
       "''${console_args[@]}" \
       --setenv=HOME="$real_home" \
-      --setenv=PATH="${toplevel}/sw/bin" \
+      --setenv=PATH="$chromium_wrapper:${toplevel}/sw/bin" \
       --setenv=TERM="''${TERM:-xterm-256color}" \
       --setenv=NIX_REMOTE=daemon \
       --as-pid2 \

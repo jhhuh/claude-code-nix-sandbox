@@ -204,9 +204,12 @@ Multiple fixes to sandbox backends for real-world multi-instance usage.
 
 **Security guide acceptance**: `~/.claude` is now always created on the host (`mkdir -p`) before bind-mounting, so first-run security acceptance persists. Previously the conditional `if [[ -d ]]` check meant first-run writes went to tmpfs and were lost.
 
-**Chrome session stealing between sandboxes**: Two root causes identified and fixed:
+**Chrome session stealing between sandboxes**: Three root causes identified and fixed:
 1. Shared D-Bus session bus — Chromium registers `org.chromium.Chromium` on D-Bus, letting the second sandbox's Chrome discover the first. Removed session bus forwarding from both backends (system bus kept for NetworkManager etc.)
-2. Shared CDP port — both Chromium instances bind to the same default debugging port on the shared network namespace. Fixed by using per-project Chromium profiles: `<project-dir>/.config/chromium/` is created and mounted as `~/.config/chromium` inside the sandbox. Each project gets isolated CDP sockets.
+2. Abstract socket collision — Chromium derives abstract Unix socket names from the profile path string. Mounting different storage to the same in-sandbox path (`~/.config/chromium`) produces identical socket names on the shared network namespace. Fixed by creating a wrapper script at `<project-dir>/.config/chromium-wrapper/chromium` that calls the real binary with `--user-data-dir=<project-dir>/.config/chromium` (unique real path per project). Wrapper prepended to PATH.
+3. Wrapper shebang: must use `#!/usr/bin/env sh` (not `#!/bin/sh`) because bubblewrap sandboxes don't have `/bin/sh`.
+
+Verified: two concurrent bubblewrap sandboxes with chromium — each got independent CDP ports (41899, 35605), independent SingletonLock files, no session stealing.
 
 **`/usr/bin/env`**: Added to bubblewrap (`--dir /usr/bin --ro-bind-try`) and container (`ln -s ${toplevel}/sw/bin/env`). Scripts with `#!/usr/bin/env` shebangs now work.
 

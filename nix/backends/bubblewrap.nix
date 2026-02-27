@@ -147,11 +147,21 @@ writeShellApplication {
       claude_auth_args+=(--bind "''${HOME}/.claude.json" "$sandbox_home/.claude.json")
     fi
 
-    # Per-project Chromium profile (isolates CDP port and session per sandbox)
-    chromium_args=()
+    # Per-project Chromium profile with unique user-data-dir path.
+    # Chromium derives abstract socket names from the profile path. Since all
+    # sandboxes share the host network namespace, mounting different storage to
+    # the same in-sandbox path (~/.config/chromium) still collides. Using the
+    # project's real path as --user-data-dir gives each sandbox a unique socket.
     chromium_profile="$project_dir/.config/chromium"
     mkdir -p "$chromium_profile"
-    chromium_args+=(--bind "$chromium_profile" "$sandbox_home/.config/chromium")
+    chromium_wrapper="$project_dir/.config/chromium-wrapper"
+    mkdir -p "$chromium_wrapper"
+    cat > "$chromium_wrapper/chromium" << WEOF
+#!/usr/bin/env sh
+exec ${sandboxPath}/bin/chromium --user-data-dir="$chromium_profile" "\$@"
+WEOF
+    chmod +x "$chromium_wrapper/chromium"
+    cp "$chromium_wrapper/chromium" "$chromium_wrapper/chromium-browser"
 
     # Git and SSH forwarding (read-only)
     git_args=()
@@ -235,7 +245,6 @@ writeShellApplication {
       --dir "$sandbox_home" \
       --dir "$sandbox_home/.config" \
       "''${claude_auth_args[@]}" \
-      "''${chromium_args[@]}" \
       "''${git_args[@]}" \
       "''${gh_args[@]}" \
       --bind "$project_dir" "$project_dir" \
@@ -263,7 +272,7 @@ writeShellApplication {
       "''${audio_args[@]}" \
       "''${env_args[@]}" \
       --setenv HOME "$sandbox_home" \
-      --setenv PATH "${sandboxPath}/bin" \
+      --setenv PATH "$chromium_wrapper:${sandboxPath}/bin" \
       --setenv TERM "''${TERM:-xterm-256color}" \
       --setenv NIX_REMOTE daemon \
       --setenv XDG_RUNTIME_DIR "''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" \
