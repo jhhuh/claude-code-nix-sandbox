@@ -105,3 +105,4 @@ Non-obvious patterns discovered during development — read before modifying rel
 - `artifacts/skills/nix-overlay-injection-into-nixosSystem-calls.md — why overlays must be injected into every nixosSystem call`
 - `artifacts/skills/vm-9p-runtime-path-fixup-for-session-continuity.md — build-time vs runtime paths, meta dir, bind-mount vs symlink for getcwd()`
 - `artifacts/skills/claude-code-session-jsonl-extraction.md — JSONL structure, jq extraction patterns, session summarizer tool`
+- `artifacts/skills/chromium-cross-sandbox-isolation-dbus-and-cdp.md — D-Bus singleton + CDP port conflict, per-project profile fix`

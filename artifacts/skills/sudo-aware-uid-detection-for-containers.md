@@ -6,14 +6,16 @@ When a container launcher runs under `sudo`, `$USER` is `root` and `$HOME` is `/
 
 ## Solution
 
-Detect the real user's identity from `SUDO_USER` / `SUDO_HOME`, falling back to current user when not under sudo:
+Detect the real user's identity from `SUDO_USER`, falling back to current user when not under sudo:
 
 ```bash
 real_user="${SUDO_USER:-${USER}}"
-real_home="${SUDO_HOME:-${HOME}}"
 real_uid="$(id -u "$real_user")"
 real_gid="$(id -g "$real_user")"
+real_home="$(getent passwd "$real_user" | cut -d: -f6)"
 ```
+
+**`SUDO_HOME` does not exist.** Sudo only sets `SUDO_USER`, `SUDO_UID`, `SUDO_GID`, `SUDO_COMMAND`. Never use `${SUDO_HOME:-${HOME}}` — under `env_reset`, `HOME=/root`, so it silently resolves to root's home. Always derive home from the passwd database via `getent passwd`.
 
 Use these throughout the script instead of hardcoded values:
 - Container `/etc/passwd` and `/etc/group` entries
