@@ -194,3 +194,23 @@ Reviewed all git history and Claude Code session files to identify undocumented 
 
 Updated CLAUDE.md skill files section with all new entries.
 
+## 2026-02-27 — Sandbox hardening: auth, Chrome isolation, cleanup
+
+Multiple fixes to sandbox backends for real-world multi-instance usage.
+
+**Container ~/.claude not mounting**: `real_home` used `SUDO_HOME` which isn't a real env var. Under sudo with `env_reset`, `HOME=/root`, so the bind check for `/root/.claude` silently failed. Fixed by resolving home from `getent passwd` (consistent with how `real_uid`/`real_gid` already use `id(1)`).
+
+**~/.claude.json forwarding**: Added to all three backends. Bubblewrap and container bind-mount it read-write; VM copies it into the meta dir.
+
+**Security guide acceptance**: `~/.claude` is now always created on the host (`mkdir -p`) before bind-mounting, so first-run security acceptance persists. Previously the conditional `if [[ -d ]]` check meant first-run writes went to tmpfs and were lost.
+
+**Chrome session stealing between sandboxes**: Two root causes identified and fixed:
+1. Shared D-Bus session bus — Chromium registers `org.chromium.Chromium` on D-Bus, letting the second sandbox's Chrome discover the first. Removed session bus forwarding from both backends (system bus kept for NetworkManager etc.)
+2. Shared CDP port — both Chromium instances bind to the same default debugging port on the shared network namespace. Fixed by using per-project Chromium profiles: `<project-dir>/.config/chromium/` is created and mounted as `~/.config/chromium` inside the sandbox. Each project gets isolated CDP sockets.
+
+**`/usr/bin/env`**: Added to bubblewrap (`--dir /usr/bin --ro-bind-try`) and container (`ln -s ${toplevel}/sw/bin/env`). Scripts with `#!/usr/bin/env` shebangs now work.
+
+**GitHub CLI forwarding**: `~/.config/gh` always bind-mounted read-only (like gitconfig). New `--gh-token` flag opts into forwarding `GH_TOKEN`/`GITHUB_TOKEN` env vars. Flag parsing upgraded to `while` loop supporting multiple `--` options in both backends.
+
+**Stale temp dir cleanup**: Container and VM backends now sweep orphaned `/tmp/claude-nspawn.*` and `/tmp/claude-vm-meta.*` dirs on startup. Container checks `machinectl show` to skip running instances; VM uses `fuser` to skip in-use disk images.
+
