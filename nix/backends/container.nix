@@ -82,6 +82,17 @@ writeShellApplication {
       exit 1
     fi
 
+    # Clean up stale container roots from previous runs killed with SIGKILL
+    for stale in /tmp/claude-nspawn.*/; do
+      [[ -d "$stale" ]] || continue
+      stale_suffix="''${stale%/}"
+      stale_suffix="''${stale_suffix##*.}"
+      stale_machine="claude-sandbox-$stale_suffix"
+      if ! machinectl show "$stale_machine" &>/dev/null; then
+        rm -rf "$stale"
+      fi
+    done
+
     # Create ephemeral container root (suffix used for unique machine name)
     container_root="$(mktemp -d /tmp/claude-nspawn.XXXXXX)"
     machine_name="claude-sandbox-''${container_root##*.}"

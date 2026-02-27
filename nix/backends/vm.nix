@@ -208,6 +208,18 @@ writeShellApplication {
       exit 1
     fi
 
+    # Clean up stale VM temp files from previous runs killed with SIGKILL
+    for stale in /tmp/claude-vm-meta.*/; do
+      [[ -d "$stale" ]] || continue
+      rm -rf "$stale"
+    done
+    for stale in /tmp/claude-sandbox-vm.*.qcow2; do
+      [[ -f "$stale" ]] || continue
+      if ! fuser "$stale" &>/dev/null; then
+        rm -f "$stale"
+      fi
+    done
+
     # Create metadata directory (entrypoint + API key)
     meta_dir="$(mktemp -d /tmp/claude-vm-meta.XXXXXX)"
     # Use unique disk image path to avoid collisions between concurrent runs
