@@ -67,7 +67,9 @@
   #   X11 (/tmp/.X11-unix/Xn)     — display forwarding
   #   Xauthority                   — X11 auth cookie
   #   Wayland ($XDG_RUNTIME_DIR/$WAYLAND_DISPLAY)
-  #   D-Bus system bus (/run/dbus/system_bus_socket) — NOT session bus
+  #   D-Bus system bus (/run/dbus/system_bus_socket) — direct bind
+  #   D-Bus session bus — forwarded for Secret Service API (keyring);
+  #     Chromium isolated via env -u DBUS_SESSION_BUS_ADDRESS in wrapper
   #   PipeWire / PulseAudio        — audio
   #   Keyring (gnome-keyring)      — secrets
   #   SSH agent ($SSH_AUTH_SOCK)   — SSH key forwarding

@@ -15,7 +15,7 @@ let
     if [ -n "''${CHROMIUM_USER_DATA_DIR:-}" ]; then
       args+=("--user-data-dir=$CHROMIUM_USER_DATA_DIR")
     fi
-    exec ${chromium}/bin/chromium "''${args[@]}" "$@"
+    exec env -u DBUS_SESSION_BUS_ADDRESS ${chromium}/bin/chromium "''${args[@]}" "$@"
   '';
 
   wrapperBrowser = writeShellScriptBin "chromium-browser" ''

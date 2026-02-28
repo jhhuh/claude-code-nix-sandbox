@@ -190,12 +190,28 @@ writeShellApplication {
       wayland_args+=("--setenv=XDG_RUNTIME_DIR=/run/user/$real_uid")
     fi
 
-    # D-Bus forwarding — only the system bus.
-    # Session bus is intentionally NOT forwarded: sharing it lets Chromium
-    # instances across containers discover each other via D-Bus singleton.
+    # D-Bus system bus
     dbus_args=()
     if [[ -S /run/dbus/system_bus_socket ]]; then
       dbus_args+=(--bind-ro=/run/dbus/system_bus_socket)
+    fi
+
+    # D-Bus session bus forwarding.
+    # Needed for Secret Service API (gnome-keyring) so `gh auth status` works.
+    # Chromium is isolated from the session bus via its wrapper (env -u
+    # DBUS_SESSION_BUS_ADDRESS in chromium.nix) to prevent singleton collisions.
+    dbus_session_args=()
+    if [[ -n "''${DBUS_SESSION_BUS_ADDRESS:-}" ]]; then
+      case "$DBUS_SESSION_BUS_ADDRESS" in
+        unix:path=*)
+          dbus_session_socket="''${DBUS_SESSION_BUS_ADDRESS#unix:path=}"
+          dbus_session_socket="''${dbus_session_socket%%;*}"
+          if [[ -S "$dbus_session_socket" ]]; then
+            dbus_session_args+=("--bind-ro=$dbus_session_socket:/run/user/$real_uid/bus")
+            dbus_session_args+=("--setenv=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$real_uid/bus")
+          fi
+          ;;
+      esac
     fi
 
     # GPU forwarding
@@ -220,8 +236,6 @@ writeShellApplication {
     fi
 
     # Keyring socket forwarding (gnome-keyring, KDE wallet)
-    # Forward the socket directly instead of the session bus to avoid
-    # re-exposing the D-Bus singleton that causes Chromium collisions.
     keyring_args=()
     if [[ -d "$runtime_dir/keyring" ]]; then
       keyring_args+=("--bind-ro=$runtime_dir/keyring:/run/user/$real_uid/keyring")
@@ -336,6 +350,7 @@ writeShellApplication {
       "''${xauth_args[@]}" \
       "''${wayland_args[@]}" \
       "''${dbus_args[@]}" \
+      "''${dbus_session_args[@]}" \
       "''${gpu_args[@]}" \
       "''${audio_args[@]}" \
       "''${keyring_args[@]}" \

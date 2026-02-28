@@ -85,13 +85,31 @@ writeShellApplication {
       fi
     fi
 
-    # D-Bus forwarding — only the system bus.
-    # Session bus is intentionally NOT forwarded: sharing it lets Chromium
-    # instances across sandboxes discover each other via org.chromium.Chromium,
-    # causing the second sandbox's Chrome to hijack the first's session.
+    # D-Bus system bus
     dbus_args=()
     if [[ -S /run/dbus/system_bus_socket ]]; then
       dbus_args+=(--ro-bind /run/dbus/system_bus_socket /run/dbus/system_bus_socket)
+    fi
+
+    # D-Bus session bus forwarding.
+    # Needed for Secret Service API (gnome-keyring) so `gh auth status` works.
+    # Chromium is isolated from the session bus via its wrapper (env -u
+    # DBUS_SESSION_BUS_ADDRESS in chromium.nix) to prevent org.chromium.Chromium
+    # singleton collisions across sandboxes.
+    dbus_session_args=()
+    if [[ -n "''${DBUS_SESSION_BUS_ADDRESS:-}" ]]; then
+      case "$DBUS_SESSION_BUS_ADDRESS" in
+        unix:path=*)
+          dbus_session_socket="''${DBUS_SESSION_BUS_ADDRESS#unix:path=}"
+          dbus_session_socket="''${dbus_session_socket%%;*}"
+          if [[ -S "$dbus_session_socket" ]]; then
+            dbus_session_args+=(--ro-bind "$dbus_session_socket" "$dbus_session_socket")
+          fi
+          ;;
+      esac
+      # Abstract sockets and other transports work without bind-mount
+      # since bwrap shares the host network namespace.
+      env_args+=(--setenv DBUS_SESSION_BUS_ADDRESS "$DBUS_SESSION_BUS_ADDRESS")
     fi
 
     # DRI (GPU) forwarding for Chromium hardware acceleration
@@ -185,7 +203,7 @@ writeShellApplication {
     if [[ -n "''${XAUTHORITY:-}" ]]; then
       env_args+=(--setenv XAUTHORITY "$XAUTHORITY")
     fi
-    # DBUS_SESSION_BUS_ADDRESS intentionally not forwarded (see D-Bus comment above)
+    # DBUS_SESSION_BUS_ADDRESS forwarded above (session bus section)
     if [[ "$gh_token" == true ]]; then
       if [[ -n "''${GH_TOKEN:-}" ]]; then
         env_args+=(--setenv GH_TOKEN "$GH_TOKEN")
@@ -251,6 +269,7 @@ writeShellApplication {
       "''${xauth_args[@]}" \
       "''${wayland_args[@]}" \
       "''${dbus_args[@]}" \
+      "''${dbus_session_args[@]}" \
       "''${audio_args[@]}" \
       "''${keyring_args[@]}" \
       "''${env_args[@]}" \

@@ -10,16 +10,14 @@ Two bubblewrap/nspawn sandboxes on the same host run separate Chromium instances
 
 Chromium registers `org.chromium.Chromium` on the D-Bus session bus. When the second sandbox starts Chrome, it finds the first's registration via the shared session bus and forwards its window request there instead of starting a new instance.
 
-**Fix**: Don't forward the host's D-Bus session bus into sandboxes. Keep the system bus (for NetworkManager, DNS, etc.) but drop the session bus entirely. Chromium works without it — just loses desktop integration (notifications, portal file dialogs).
+**Fix**: The `chromiumSandbox` wrapper (nix/chromium.nix) strips `DBUS_SESSION_BUS_ADDRESS` from Chromium's environment via `env -u DBUS_SESSION_BUS_ADDRESS`. The session bus is forwarded into the sandbox (so other tools like `gh` can access gnome-keyring via the Secret Service API), but Chromium can't see it and therefore can't register its singleton.
 
 ```bash
-# Only system bus, no session bus
-dbus_args=()
-if [[ -S /run/dbus/system_bus_socket ]]; then
-  dbus_args+=(--ro-bind /run/dbus/system_bus_socket /run/dbus/system_bus_socket)
-fi
-# Do NOT forward DBUS_SESSION_BUS_ADDRESS
+# chromium.nix wrapper:
+exec env -u DBUS_SESSION_BUS_ADDRESS chromium --user-data-dir=$CHROMIUM_USER_DATA_DIR "$@"
 ```
+
+This replaced the previous approach of dropping the session bus entirely, which broke `gh auth status` (gh stores OAuth tokens in gnome-keyring via D-Bus Secret Service API).
 
 ### 2. Abstract socket collision on shared network namespace
 
@@ -30,11 +28,16 @@ Chromium uses abstract Unix sockets (which live in the network namespace, not th
 ```bash
 # Backend sets the env var:
 --setenv CHROMIUM_USER_DATA_DIR "$chromium_profile"
-# chromiumSandbox wrapper handles the rest:
-exec chromium --user-data-dir=$CHROMIUM_USER_DATA_DIR "$@"
 ```
 
-This replaced the previous approach of generating runtime wrapper scripts at `<project-dir>/.config/chromium-wrapper/` — the Nix package handles it now.
+## Session bus forwarding details
+
+Backends parse `DBUS_SESSION_BUS_ADDRESS` and bind-mount the socket:
+- **bubblewrap**: `--ro-bind $socket $socket` (same path, shared network namespace)
+- **container**: `--bind-ro=$socket:/run/user/$uid/bus` (remapped to container runtime dir)
+- **VM**: Not applicable — VM has its own D-Bus inside the NixOS guest
+
+For `unix:path=...` addresses, the socket file is bind-mounted. Abstract sockets (`unix:abstract=...`) work without bind-mount in bubblewrap since it shares the host network namespace.
 
 ## Why not `--unshare-net`?
 
@@ -43,6 +46,10 @@ Isolating the network namespace would fix socket conflicts but breaks internet a
 ## Why not bind-mount to a common in-sandbox path?
 
 Mounting `<project-dir>/.config/chromium` to `~/.config/chromium` inside each sandbox means the in-sandbox path string is identical across sandboxes. Since abstract sockets are keyed on path strings and live in the shared network namespace, they still collide. The `--user-data-dir` flag with the **real host path** is the key — each project gets a globally unique socket name.
+
+## Why not xdg-dbus-proxy?
+
+Considered using `xdg-dbus-proxy` to create a per-sandbox filtered proxy allowing only `org.freedesktop.secrets`. Rejected because it requires running a separate daemon process on the host for each sandbox session. The `env -u` approach in the wrapper is simpler (no extra process, no cleanup).
 
 ## Verified
 
