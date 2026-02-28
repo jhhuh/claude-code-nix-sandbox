@@ -131,10 +131,13 @@ writeShellApplication {
     echo "$machine_name" > "$project_dir/.config/claude-sandbox-machine"
     trap 'rm -rf "$container_root"; rm -f "$project_dir/.config/claude-sandbox-machine"' EXIT
 
-    mkdir -p "$container_root"/{etc,var/lib,run,tmp,usr/bin}
+    mkdir -p "$container_root"/{bin,etc,var/lib,run,tmp,usr/bin}
 
-    # /usr/bin/env for shebang compatibility
+    # Standard shell paths for shebang compatibility
     ln -s "${toplevel}/sw/bin/env" "$container_root/usr/bin/env"
+    ln -s "${toplevel}/sw/bin/bash" "$container_root/bin/bash"
+    ln -s "${toplevel}/sw/bin/bash" "$container_root/bin/sh"
+    ln -s "${toplevel}/sw/bin/bash" "$container_root/usr/bin/bash"
 
     # Stub files required by nspawn
     touch "$container_root/etc/os-release"
@@ -213,6 +216,14 @@ writeShellApplication {
     fi
     if [[ -e "$runtime_dir/pulse/native" ]]; then
       audio_args+=("--bind-ro=$runtime_dir/pulse:/run/user/$real_uid/pulse")
+    fi
+
+    # Keyring socket forwarding (gnome-keyring, KDE wallet)
+    # Forward the socket directly instead of the session bus to avoid
+    # re-exposing the D-Bus singleton that causes Chromium collisions.
+    keyring_args=()
+    if [[ -d "$runtime_dir/keyring" ]]; then
+      keyring_args+=("--bind-ro=$runtime_dir/keyring:/run/user/$real_uid/keyring")
     fi
 
     # Claude auth and config persistence
@@ -328,6 +339,7 @@ WEOF
       "''${dbus_args[@]}" \
       "''${gpu_args[@]}" \
       "''${audio_args[@]}" \
+      "''${keyring_args[@]}" \
       "''${claude_auth_args[@]}" \
       "''${git_args[@]}" \
       "''${gh_args[@]}" \
