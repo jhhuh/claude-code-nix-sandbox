@@ -263,7 +263,11 @@ WEOF
       --ro-bind-try /etc/nsswitch.conf /etc/nsswitch.conf \
       --ro-bind-try /etc/nix /etc/nix \
       --ro-bind-try /etc/static /etc/static \
+      --dir /bin \
+      --symlink "${sandboxPath}/bin/bash" /bin/bash \
+      --symlink "${sandboxPath}/bin/bash" /bin/sh \
       --dir /usr/bin \
+      --symlink "${sandboxPath}/bin/bash" /usr/bin/bash \
       --ro-bind-try /usr/bin/env /usr/bin/env \
       "''${x11_args[@]}" \
       "''${xauth_args[@]}" \
