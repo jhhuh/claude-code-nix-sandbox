@@ -29,6 +29,8 @@ async fn main() {
         std::env::var("MANAGER_STATIC_DIR").unwrap_or_else(|_| "static".into());
 
     let state_path = PathBuf::from(&state_dir).join("state.json");
+    let log_dir = PathBuf::from(&state_dir).join("logs");
+    std::fs::create_dir_all(&log_dir).expect("Failed to create log directory");
     let mut manager_state = ManagerState::load(&state_path);
     manager_state.reconcile_pids();
     let _ = manager_state.save(&state_path);
@@ -36,6 +38,7 @@ async fn main() {
     let shared = Arc::new(AppState {
         manager: RwLock::new(manager_state),
         state_path,
+        log_dir,
         screenshots: RwLock::new(HashMap::new()),
     });
 

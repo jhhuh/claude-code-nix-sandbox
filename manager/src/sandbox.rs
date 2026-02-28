@@ -45,6 +45,12 @@ pub async fn create_sandbox(
     session::create_session(&tmux_session, display_num, &backend_cmd, &req.project_dir)
         .map_err(|e| format!("Failed to create tmux session: {}", e))?;
 
+    // Start capturing tmux output to log file
+    let log_path = state.log_dir.join(format!("{}.log", id));
+    if let Err(e) = session::start_pipe_pane(&tmux_session, &log_path) {
+        tracing::warn!("Failed to start log capture for {}: {}", short_id, e);
+    }
+
     let qemu_qmp_socket = if req.backend == Backend::Vm {
         Some(format!("/run/claude-manager/qmp-{}.sock", short_id))
     } else {
@@ -109,5 +115,10 @@ pub async fn delete_sandbox(state: &AppState, id: &str) -> Result<(), String> {
     let mut manager = state.manager.write().await;
     manager.sandboxes.remove(id);
     let _ = manager.save(&state.state_path);
+
+    // Clean up log file
+    let log_path = state.log_dir.join(format!("{}.log", id));
+    let _ = std::fs::remove_file(&log_path);
+
     Ok(())
 }

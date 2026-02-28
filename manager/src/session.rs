@@ -37,6 +37,26 @@ pub fn has_session(session_name: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// Start capturing tmux pane output to a log file
+pub fn start_pipe_pane(session_name: &str, log_path: &std::path::Path) -> std::io::Result<()> {
+    let output = Command::new("tmux")
+        .args([
+            "pipe-pane",
+            "-o",
+            "-t",
+            session_name,
+            &format!("cat >> {}", log_path.display()),
+        ])
+        .output()?;
+    if !output.status.success() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            String::from_utf8_lossy(&output.stderr).to_string(),
+        ));
+    }
+    Ok(())
+}
+
 /// Kill a tmux session
 pub fn kill_session(session_name: &str) {
     let _ = Command::new("tmux")

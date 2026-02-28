@@ -144,6 +144,7 @@ fn default_true() -> bool {
 pub struct AppState {
     pub manager: RwLock<ManagerState>,
     pub state_path: PathBuf,
+    pub log_dir: PathBuf,
     pub screenshots: RwLock<HashMap<String, Vec<u8>>>,
 }
 
