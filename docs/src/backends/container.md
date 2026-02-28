@@ -19,7 +19,7 @@ sudo ./result/bin/claude-sandbox-container /path/to/project
 
 ## How it works
 
-The backend evaluates a NixOS configuration (`nixosSystem`) to produce a system closure (`toplevel`) containing claude-code, chromium, and other packages. At runtime it:
+The backend imports `nix/sandbox-spec.nix` for the canonical package list and evaluates a NixOS configuration (`nixosSystem`) with `spec.packages` in `environment.systemPackages` to produce a system closure (`toplevel`). Host `/etc` paths are also driven by the spec. At runtime it:
 
 1. Creates an ephemeral container root in `/tmp/claude-nspawn.XXXXXX`
 2. Creates stub files (`os-release`, `machine-id`) and passwd/group entries
@@ -63,11 +63,12 @@ pkgs.callPackage ./nix/backends/container.nix {
 
 - X11 display socket and Xauthority (copied into container root)
 - Wayland socket
-- D-Bus session and system bus sockets
+- D-Bus system bus socket (session bus intentionally NOT forwarded)
 - GPU (`/dev/dri`, `/dev/shm`, `/run/opengl-driver`)
 - PipeWire and PulseAudio sockets
 - SSH agent (remapped to `/run/user/<uid>/ssh-agent.sock`)
 - Git config and SSH keys (read-only)
 - `~/.claude` auth directory (read-write)
 - Nix store, database, and daemon socket
-- Host DNS, TLS certificates, fonts, timezone, locale
+- Host DNS, TLS certificates, fonts, timezone
+- Locale (`LANG`, `LC_ALL`)

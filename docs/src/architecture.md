@@ -4,6 +4,8 @@
 
 ```
 flake.nix              # Entry point: packages, checks, nixosModules, devShells
+nix/sandbox-spec.nix   # Single source of truth for sandbox requirements
+nix/chromium.nix       # Chromium wrapper with extension policy
 nix/backends/
   bubblewrap.nix       # bwrap sandbox — unprivileged, user namespaces
   container.nix        # systemd-nspawn container — requires root
@@ -36,17 +38,19 @@ tests/
 
 - **Pure Nix** — all orchestration is Nix expressions, no shell/Python wrappers for coordination
 - **One backend per file** — each backend is a self-contained `callPackage`-able function in `nix/backends/`
-- **Chromium from nixpkgs** — always `pkgs.chromium`, never a manual download
+- **Spec-driven** — `nix/sandbox-spec.nix` is the single source of truth for packages, extension IDs, and /etc paths. Backends import the spec and implement HOW to deliver each requirement
+- **Chromium from nixpkgs** — always `pkgs.chromium`, never a manual download. Chromium is excluded from the spec because bwrap uses a `chromiumSandbox` wrapper while container/VM use stock `chromium`
 - **Dynamic bash arrays** — backends build bwrap/nspawn/QEMU argument lists conditionally using bash arrays for optional features (display, D-Bus, GPU, auth, network)
 
 ## Backend pattern
 
 Each backend follows the same structure:
 
-1. **Nix function** with `{ lib, writeShellApplication, ..., network ? true, extraPackages/extraModules ? [] }`
-2. **Build a PATH or system closure** — `symlinkJoin` (bubblewrap) or `nixosSystem` (container/VM)
-3. **Generate a shell script** via `writeShellApplication` that:
-   - Parses `--shell` flag and project directory argument
+1. **Nix function** with `{ lib, pkgs, writeShellApplication, ..., network ? true, extraPackages/extraModules ? [] }`
+2. **Import spec** — `spec = import ../sandbox-spec.nix { inherit pkgs; }` for packages and /etc paths
+3. **Build a PATH or system closure** — `symlinkJoin` with `spec.packages` (bubblewrap) or `nixosSystem` with `spec.packages` in `environment.systemPackages` (container/VM)
+4. **Generate a shell script** via `writeShellApplication` that:
+   - Parses `--shell`, `--gh-token` flags and project directory argument
    - Conditionally builds arrays of flags for display, D-Bus, GPU, audio, auth, git, SSH, network
    - Execs the sandbox runtime (`bwrap`, `systemd-nspawn`, or QEMU VM script)
 

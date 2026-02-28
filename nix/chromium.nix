@@ -3,12 +3,11 @@
 # - Reads CHROMIUM_USER_DATA_DIR env var for per-project profile isolation
 # - Exposes extensionPolicy via passthru for backends to mount at
 #   /etc/chromium/policies/managed/default.json
-{ chromium, writeShellScriptBin, writeText, symlinkJoin }:
+{ chromium, writeShellScriptBin, writeText, symlinkJoin,
+  chromeExtensionIds ? [ "fcoeoabgfenejglbffodgkkbkcdhcgfn" ] }:
 let
   extensionPolicy = writeText "chromium-extension-policy.json" (builtins.toJSON {
-    ExtensionInstallForcelist = [
-      "fcoeoabgfenejglbffodgkkbkcdhcgfn"  # Claude in Chrome
-    ];
+    ExtensionInstallForcelist = chromeExtensionIds;
   });
 
   wrapper = writeShellScriptBin "chromium" ''

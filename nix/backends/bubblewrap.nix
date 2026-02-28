@@ -1,24 +1,18 @@
 # Bubblewrap sandbox backend for Claude Code + Chromium
 #
-# Usage: claude-sandbox [--shell] <project-dir> [claude args...]
+# Usage: claude-sandbox [--shell] [--gh-token] <project-dir> [claude args...]
 #
 # Produces a writeShellApplication that wraps bwrap to isolate
 # claude-code and chromium with access to a single project directory.
 # Automatically bind-mounts ~/.claude for auth persistence if it exists.
 {
   lib,
+  pkgs,
   writeShellApplication,
   symlinkJoin,
   bubblewrap,
-  claude-code,
   chromiumSandbox,
   coreutils,
-  bash,
-  git,
-  gh,
-  openssh,
-  nodejs,
-  nix,
   # Toggle host network access (set false to --unshare-net)
   network ? true,
   # Additional packages available inside the sandbox
@@ -26,19 +20,11 @@
 }:
 
 let
+  spec = import ../sandbox-spec.nix { inherit pkgs; };
+
   sandboxPath = symlinkJoin {
     name = "claude-sandbox-path";
-    paths = [
-      claude-code
-      chromiumSandbox
-      coreutils
-      bash
-      git
-      gh
-      openssh
-      nodejs
-      nix
-    ] ++ extraPackages;
+    paths = spec.packages ++ [ chromiumSandbox ] ++ extraPackages;
   };
 
   networkFlags = lib.optionalString (!network) "--unshare-net";
@@ -250,21 +236,7 @@ writeShellApplication {
       "''${git_args[@]}" \
       "''${gh_args[@]}" \
       --bind "$project_dir" "$project_dir" \
-      --ro-bind-try /etc/resolv.conf /etc/resolv.conf \
-      --ro-bind-try /etc/hosts /etc/hosts \
-      --ro-bind-try /etc/ssl /etc/ssl \
-      --ro-bind-try /etc/ca-certificates /etc/ca-certificates \
-      --ro-bind-try /etc/pki /etc/pki \
-      --ro-bind-try /etc/fonts /etc/fonts \
-      --ro-bind-try /etc/passwd /etc/passwd \
-      --ro-bind-try /etc/group /etc/group \
-      --ro-bind-try /etc/localtime /etc/localtime \
-      --ro-bind-try /etc/zoneinfo /etc/zoneinfo \
-      --ro-bind-try /etc/machine-id /etc/machine-id \
-      --ro-bind-try /etc/locale.conf /etc/locale.conf \
-      --ro-bind-try /etc/nsswitch.conf /etc/nsswitch.conf \
-      --ro-bind-try /etc/nix /etc/nix \
-      --ro-bind-try /etc/static /etc/static \
+      ${lib.concatMapStringsSep " \\\n  " (p: "--ro-bind-try ${p} ${p}") (spec.hostEtcPaths ++ spec.hostEtcPathsBwrapOnly)} \
       --dir /etc/chromium \
       --dir /etc/chromium/policies \
       --dir /etc/chromium/policies/managed \

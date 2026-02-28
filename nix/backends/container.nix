@@ -1,6 +1,6 @@
 # systemd-nspawn container backend for Claude Code + Chromium
 #
-# Usage: claude-sandbox-container [--shell] <project-dir> [claude args...]
+# Usage: claude-sandbox-container [--shell] [--gh-token] <project-dir> [claude args...]
 #        claude-sandbox-container bind <project-dir> <host-path> [container-path]
 #
 # Launches a NixOS container via systemd-nspawn with claude-code and
@@ -8,6 +8,7 @@
 # than bubblewrap: separate PID, mount, IPC, and optionally network namespaces.
 {
   lib,
+  pkgs,
   writeShellApplication,
   systemd,
   coreutils,
@@ -20,6 +21,8 @@
 }:
 
 let
+  spec = import ../sandbox-spec.nix { inherit pkgs; };
+
   containerSystem = nixos {
     imports = [
       ({ pkgs, ... }: {
@@ -30,18 +33,10 @@ let
 
         nixpkgs.config.allowUnfree = true;
 
-        environment.systemPackages = with pkgs; [
-          claude-code
+        environment.systemPackages = spec.packages ++ (with pkgs; [
           chromium
-          git
-          gh
-          openssh
-          nodejs
-          coreutils
-          bash
-          nix
           util-linux  # setpriv for privilege dropping
-        ];
+        ]);
 
         system.stateVersion = "24.11";
       })
@@ -303,11 +298,18 @@ writeShellApplication {
       api_key_args+=(--setenv=ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY")
     fi
 
+    # Locale forwarding
+    locale_args=()
+    if [[ -n "''${LANG:-}" ]]; then
+      locale_args+=(--setenv=LANG="$LANG")
+    fi
+    if [[ -n "''${LC_ALL:-}" ]]; then
+      locale_args+=(--setenv=LC_ALL="$LC_ALL")
+    fi
+
     # Host config forwarding (DNS, TLS, fonts, timezone, locale)
     host_cfg_args=()
-    for f in /etc/resolv.conf /etc/hosts /etc/ssl /etc/ca-certificates /etc/pki \
-             /etc/fonts /etc/localtime /etc/zoneinfo /etc/locale.conf \
-             /etc/nix /etc/static /etc/nsswitch.conf; do
+    for f in ${lib.concatStringsSep " " spec.hostEtcPaths}; do
       if [[ -e "$f" ]]; then
         host_cfg_args+=("--bind-ro=$f")
       fi
@@ -343,6 +345,7 @@ writeShellApplication {
       "''${ssh_agent_args[@]}" \
       "''${network_args[@]}" \
       "''${api_key_args[@]}" \
+      "''${locale_args[@]}" \
       "''${entrypoint_args[@]}" \
       "''${console_args[@]}" \
       --setenv=HOME="$real_home" \

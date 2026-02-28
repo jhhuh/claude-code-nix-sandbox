@@ -19,11 +19,11 @@ nix build github:jhhuh/claude-code-nix-sandbox#no-network
 
 ## How it works
 
-The sandbox script builds a `symlinkJoin` of all packages (claude-code, chromium, git, openssh, nix, coreutils, bash, plus any `extraPackages`) into a single PATH. It then calls `bwrap` with:
+The sandbox script imports `nix/sandbox-spec.nix` for the canonical package list and builds a `symlinkJoin` of `spec.packages` plus chromiumSandbox and any `extraPackages` into a single PATH. Host `/etc` paths are also driven by the spec. It then calls `bwrap` with:
 
 - **Filesystem**: `/nix/store` read-only, project directory read-write, `~/.claude` read-write, `/home` as tmpfs
 - **Display**: X11 socket + Xauthority, Wayland socket forwarded
-- **D-Bus**: session bus and system bus sockets forwarded (needed by Chromium)
+- **D-Bus**: system bus socket forwarded (session bus intentionally NOT forwarded to prevent Chromium singleton collisions)
 - **GPU**: `/dev/dri` and `/run/opengl-driver` forwarded for hardware acceleration
 - **Audio**: PipeWire and PulseAudio sockets forwarded
 - **Network**: shared with host by default, `--unshare-net` when `network = false`

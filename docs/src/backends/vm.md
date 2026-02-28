@@ -19,7 +19,7 @@ nix build github:jhhuh/claude-code-nix-sandbox#vm-no-network
 
 ## How it works
 
-The backend evaluates a NixOS VM configuration using the `qemu-vm.nix` module. The VM is configured with:
+The backend imports `nix/sandbox-spec.nix` for the canonical package list and Chrome extension IDs, then evaluates a NixOS VM configuration using the `qemu-vm.nix` module. The VM is configured with:
 
 - **4 GB RAM, 4 cores** (defaults from `virtualisation` module)
 - **Serial console on stdio** for Claude Code interaction
@@ -40,6 +40,7 @@ A tty guard in `interactiveShellInit` ensures the entrypoint (Claude Code or bas
 | `/home/sandbox/.claude` | `claude_auth` | Read-write, nofail | Auth persistence |
 | `/home/sandbox/.gitconfig` | `git_config` | Read-only, nofail | Git config |
 | `/home/sandbox/.config/git` | `git_config_dir` | Read-only, nofail | Git config directory |
+| `/home/sandbox/.config/gh` | `gh_config_dir` | Read-only, nofail | GitHub CLI config |
 | `/home/sandbox/.ssh` | `ssh_dir` | Read-only, nofail | SSH keys |
 | `/mnt/meta` | `claude_meta` | Read-only | Entrypoint and API key |
 
@@ -47,7 +48,16 @@ Shares use `msize=104857600` (100 MB) for the project directory to improve I/O t
 
 ### Metadata passing
 
-The entrypoint command and API key are written to a temporary directory on the host and shared via 9p as `/mnt/meta`. The VM reads `/mnt/meta/entrypoint` and `/mnt/meta/apikey` during shell init.
+The entrypoint command, API key, GitHub token, and locale settings are written to a temporary directory on the host and shared via 9p as `/mnt/meta`. The VM reads these files during shell init:
+
+- `/mnt/meta/entrypoint` — command to run (claude or bash)
+- `/mnt/meta/apikey` — Anthropic API key
+- `/mnt/meta/host_home` — host user's home path (for path reconstruction)
+- `/mnt/meta/host_project` — host project path (for bind-mount)
+- `/mnt/meta/claude.json` — Claude config file
+- `/mnt/meta/gh_token` — GitHub token (when `--gh-token` is used)
+- `/mnt/meta/lang` — LANG locale setting
+- `/mnt/meta/lc_all` — LC_ALL locale setting
 
 ## Nix parameters
 

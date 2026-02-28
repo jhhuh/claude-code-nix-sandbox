@@ -1,6 +1,6 @@
 # QEMU VM backend for Claude Code + Chromium
 #
-# Usage: claude-sandbox-vm [--shell] <project-dir> [claude args...]
+# Usage: claude-sandbox-vm [--shell] [--gh-token] <project-dir> [claude args...]
 #
 # Launches a NixOS VM via QEMU with claude-code and chromium.
 # Provides the strongest isolation: separate kernel, full hardware
@@ -8,6 +8,7 @@
 # Chromium renders in the QEMU display window.
 {
   lib,
+  pkgs,
   writeShellApplication,
   coreutils,
   nixos,
@@ -18,6 +19,8 @@
 }:
 
 let
+  spec = import ../sandbox-spec.nix { inherit pkgs; };
+
   vmSystem = nixos {
     imports = [
       ({ pkgs, modulesPath, ... }: {
@@ -66,6 +69,14 @@ let
 
         fileSystems."/home/sandbox/.config/git" = {
           device = "git_config_dir";
+          fsType = "9p";
+          options = [ "trans=virtio" "version=9p2000.L" "ro" "nofail" ];
+          noCheck = true;
+        };
+
+        # GitHub CLI config via 9p (nofail: dir may not exist on host)
+        fileSystems."/home/sandbox/.config/gh" = {
+          device = "gh_config_dir";
           fsType = "9p";
           options = [ "trans=virtio" "version=9p2000.L" "ro" "nofail" ];
           noCheck = true;
@@ -134,6 +145,16 @@ let
             if [[ -f /mnt/meta/apikey ]]; then
               export ANTHROPIC_API_KEY=$(cat /mnt/meta/apikey)
             fi
+            if [[ -f /mnt/meta/gh_token ]]; then
+              export GH_TOKEN=$(cat /mnt/meta/gh_token)
+              export GITHUB_TOKEN=$(cat /mnt/meta/gh_token)
+            fi
+            if [[ -f /mnt/meta/lang ]]; then
+              export LANG=$(cat /mnt/meta/lang)
+            fi
+            if [[ -f /mnt/meta/lc_all ]]; then
+              export LC_ALL=$(cat /mnt/meta/lc_all)
+            fi
             # Run entrypoint (exec replaces shell in non-interactive mode)
             if [[ -f /mnt/meta/entrypoint ]]; then
               entrypoint=$(cat /mnt/meta/entrypoint)
@@ -156,15 +177,7 @@ let
           extraGroups = [ "video" "audio" "wheel" ];
         };
 
-        environment.systemPackages = with pkgs; [
-          claude-code
-          chromium
-          git
-          openssh
-          coreutils
-          bash
-          nix
-        ];
+        environment.systemPackages = spec.packages ++ [ pkgs.chromium ];
 
         networking = {
           hostName = "claude-sandbox";
@@ -176,7 +189,7 @@ let
           "fonts/fonts.conf".source = lib.mkDefault "${pkgs.fontconfig.out}/etc/fonts/fonts.conf";
           # Chromium managed policy: force-install Claude in Chrome extension
           "chromium/policies/managed/default.json".text = builtins.toJSON {
-            ExtensionInstallForcelist = [ "fcoeoabgfenejglbffodgkkbkcdhcgfn" ];
+            ExtensionInstallForcelist = spec.chromeExtensionIds;
           };
         };
 
@@ -193,14 +206,20 @@ writeShellApplication {
 
   text = ''
     shell_mode=false
-    if [[ "''${1:-}" == "--shell" ]]; then
-      shell_mode=true
-      shift
-    fi
+    gh_token=false
+    while [[ "''${1:-}" == --* ]]; do
+      case "''${1:-}" in
+        --shell) shell_mode=true; shift ;;
+        --gh-token) gh_token=true; shift ;;
+        --help|-h) break ;;
+        *) echo "Unknown option: $1" >&2; exit 1 ;;
+      esac
+    done
 
     if [[ $# -lt 1 ]] || [[ "''${1:-}" == "--help" ]] || [[ "''${1:-}" == "-h" ]]; then
-      echo "Usage: claude-sandbox-vm [--shell] <project-dir> [claude args...]" >&2
-      echo "  --shell  Drop into bash instead of launching claude" >&2
+      echo "Usage: claude-sandbox-vm [--shell] [--gh-token] <project-dir> [claude args...]" >&2
+      echo "  --shell     Drop into bash instead of launching claude" >&2
+      echo "  --gh-token  Forward GH_TOKEN/GITHUB_TOKEN env vars into VM" >&2
       exit 1
     fi
 
@@ -250,6 +269,23 @@ writeShellApplication {
       cp "''${HOME}/.claude.json" "$meta_dir/claude.json"
     fi
 
+    # Forward GH_TOKEN if requested
+    if [[ "$gh_token" == true ]]; then
+      if [[ -n "''${GH_TOKEN:-}" ]]; then
+        echo "$GH_TOKEN" > "$meta_dir/gh_token"
+      elif [[ -n "''${GITHUB_TOKEN:-}" ]]; then
+        echo "$GITHUB_TOKEN" > "$meta_dir/gh_token"
+      fi
+    fi
+
+    # Forward locale settings
+    if [[ -n "''${LANG:-}" ]]; then
+      echo "$LANG" > "$meta_dir/lang"
+    fi
+    if [[ -n "''${LC_ALL:-}" ]]; then
+      echo "$LC_ALL" > "$meta_dir/lc_all"
+    fi
+
     # Share project, metadata, and auth dirs via 9p
     qemu_extra=()
     qemu_extra+=(-virtfs "local,path=$project_dir,mount_tag=project_share,security_model=none,id=project_share")
@@ -265,6 +301,9 @@ writeShellApplication {
     fi
     if [[ -d "$HOME/.config/git" ]]; then
       qemu_extra+=(-virtfs "local,path=$HOME/.config/git,mount_tag=git_config_dir,security_model=none,id=git_config_dir,readonly=on")
+    fi
+    if [[ -d "$HOME/.config/gh" ]]; then
+      qemu_extra+=(-virtfs "local,path=$HOME/.config/gh,mount_tag=gh_config_dir,security_model=none,id=gh_config_dir,readonly=on")
     fi
     if [[ -d "$HOME/.ssh" ]]; then
       qemu_extra+=(-virtfs "local,path=$HOME/.ssh,mount_tag=ssh_dir,security_model=none,id=ssh_dir,readonly=on")

@@ -12,7 +12,10 @@
       supportedSystems = [ "x86_64-linux" "aarch64-linux" ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
       sandboxOverlay = final: prev: {
-        chromiumSandbox = prev.callPackage ./nix/chromium.nix { };
+        sandboxSpec = import ./nix/sandbox-spec.nix { pkgs = final; };
+        chromiumSandbox = prev.callPackage ./nix/chromium.nix {
+          chromeExtensionIds = final.sandboxSpec.chromeExtensionIds;
+        };
       };
       pkgsFor = system: import nixpkgs {
         inherit system;

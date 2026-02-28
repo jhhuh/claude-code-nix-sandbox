@@ -12,7 +12,11 @@
 let
   cfg = config.services.claude-sandbox;
 
-  chromiumSandbox = pkgs.callPackage ../../nix/chromium.nix { };
+  spec = import ../../nix/sandbox-spec.nix { inherit pkgs; };
+
+  chromiumSandbox = pkgs.callPackage ../../nix/chromium.nix {
+    chromeExtensionIds = spec.chromeExtensionIds;
+  };
 
   nixos = args: import "${pkgs.path}/nixos/lib/eval-config.nix" {
     modules = args.imports;

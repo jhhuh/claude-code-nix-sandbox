@@ -10,6 +10,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```
 flake.nix              # Entry point: packages, checks, nixosModules, devShells
+nix/sandbox-spec.nix   # Single source of truth: packages, extension IDs, /etc paths
+nix/chromium.nix       # Chromium wrapper with extension policy (accepts chromeExtensionIds)
 nix/backends/
   bubblewrap.nix       # bwrap sandbox — unprivileged, user namespaces
   container.nix        # systemd-nspawn container — requires root, full namespace isolation
@@ -38,7 +40,7 @@ manager/               # Rust/Axum web dashboard + REST API
 
 ### Sandbox Backends
 
-All backends are `callPackage`-able functions producing `writeShellApplication` derivations. They share a common pattern: dynamic bash arrays for optional flags (display, D-Bus, GPU, auth, network).
+All backends are `callPackage`-able functions producing `writeShellApplication` derivations. They import `nix/sandbox-spec.nix` for the canonical package list, Chrome extension IDs, and `/etc` paths, then implement the backend-specific delivery mechanism. They share a common pattern: dynamic bash arrays for optional flags (display, D-Bus, GPU, auth, network).
 
 **Bubblewrap** uses `symlinkJoin` to build PATH from packages. **Container** evaluates a NixOS config (`nixosSystem`) to get a system closure (`toplevel`), creates an ephemeral container root, and uses `setpriv` to drop from root to the real user's UID/GID (detected via `SUDO_USER`). **VM** builds a full NixOS VM with Xorg+openbox for Chromium display and serial console for claude-code interaction; shares directories via 9p.
 
@@ -80,9 +82,10 @@ claude-remote ui                          # SSH tunnel for web dashboard
 
 - **Pure Nix only**: no shell/Python wrappers for orchestration
 - **One backend per file** in `nix/backends/`
+- **Spec-driven**: `nix/sandbox-spec.nix` is the single source of truth for packages, extension IDs, and /etc paths. Backends import it and implement delivery. Chromium is excluded from spec because bwrap uses `chromiumSandbox` wrapper while container/VM use stock `chromium`
 - **Chromium from nixpkgs**: always `pkgs.chromium` inside the sandbox
 - **claude-code from `sadjow/claude-code-nix`**: flake input with overlay applied to `pkgsFor` and all `nixosSystem` calls; backends reference `pkgs.claude-code` which resolves through the overlay
-- **Backends are callPackage-able**: called via `pkgs.callPackage` in flake.nix
+- **Backends are callPackage-able**: called via `pkgs.callPackage` in flake.nix; `pkgs` param is auto-filled and used to evaluate the spec
 - **NixOS modules**: `sandbox.nix` as `nixosModules.default`, `manager.nix` as `nixosModules.manager`
 - **Manager is Rust/Axum**: axum 0.7, askama 0.12, tower-http 0.5, sysinfo for metrics
 - **Manager static files**: vendored htmx + CSS, no npm/build step; askama compiles templates into the binary

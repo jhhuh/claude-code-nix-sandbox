@@ -18,7 +18,8 @@ All three backends share a common pattern: they are `callPackage`-able Nix funct
 | D-Bus | Forwarded | Forwarded | Isolated |
 | SSH agent | Forwarded | Forwarded | Isolated |
 | Nix commands | Via daemon | Via daemon | Local store |
-| Locale | Forwarded | Forwarded | NixOS default |
+| GitHub CLI config | Forwarded | Forwarded | Forwarded (9p) |
+| Locale | Forwarded | Forwarded | Forwarded (meta) |
 | Kernel | Shared | Shared | Separate |
 
 ## Choosing a backend
@@ -32,9 +33,10 @@ All three backends share a common pattern: they are `callPackage`-able Nix funct
 All backends accept:
 
 ```
-[--shell] <project-dir> [claude args...]
+[--shell] [--gh-token] <project-dir> [claude args...]
 ```
 
 - `--shell` — drop into bash instead of launching Claude Code
+- `--gh-token` — forward `GH_TOKEN`/`GITHUB_TOKEN` env vars into the sandbox
 - `<project-dir>` — the directory to mount read-write inside the sandbox
 - Additional arguments after the project directory are passed to `claude`
