@@ -9,6 +9,7 @@ use tower_http::services::ServeDir;
 mod api;
 mod display;
 mod fragments;
+mod logs;
 mod metrics;
 mod sandbox;
 mod screenshot;
@@ -108,6 +109,7 @@ async fn main() {
             "/api/sandboxes/:id/screenshot",
             get(api::get_screenshot),
         )
+        .route("/ws/sandboxes/:id/logs", get(logs::ws_logs))
         .route(
             "/api/sandboxes/:id/metrics",
             get(api::get_sandbox_metrics),
