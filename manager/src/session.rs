@@ -45,7 +45,7 @@ pub fn start_pipe_pane(session_name: &str, log_path: &std::path::Path) -> std::i
             "-o",
             "-t",
             session_name,
-            &format!("cat >> {}", log_path.display()),
+            &format!("cat >> '{}'", log_path.display()),
         ])
         .output()?;
     if !output.status.success() {
