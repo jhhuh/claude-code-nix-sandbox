@@ -159,6 +159,22 @@ pub async fn get_system_metrics() -> impl IntoResponse {
     Json(metrics::collect_system_metrics())
 }
 
+pub async fn get_logs(
+    State(state): State<SharedState>,
+    Path(id): Path<String>,
+) -> Response {
+    let exists = state.manager.read().await.sandboxes.contains_key(&id);
+    if !exists {
+        return (StatusCode::NOT_FOUND, "Sandbox not found").into_response();
+    }
+
+    let log_path = state.log_dir.join(format!("{}.log", id));
+    match std::fs::read_to_string(&log_path) {
+        Ok(content) => (StatusCode::OK, [("content-type", "text/plain")], content).into_response(),
+        Err(_) => (StatusCode::NOT_FOUND, "No logs available").into_response(),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // System metrics type re-export for templates
 // ---------------------------------------------------------------------------

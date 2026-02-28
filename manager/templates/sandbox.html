@@ -76,5 +76,15 @@
             </div>
         </div>
     </div>
+
+    <div class="panel log-panel">
+        <div class="log-header">
+            <h2>Logs</h2>
+            <span id="log-status" class="muted">disconnected</span>
+        </div>
+        <pre id="log-output" class="log-output" data-sandbox-id="{{ sandbox.id }}"></pre>
+    </div>
+
+    <script src="/static/logs.js"></script>
 </div>
 {% endblock %}

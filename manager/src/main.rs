@@ -115,6 +115,7 @@ async fn main() {
             get(api::get_sandbox_metrics),
         )
         .route("/api/metrics/system", get(api::get_system_metrics))
+        .route("/api/sandboxes/:id/logs", get(api::get_logs))
         // htmx fragments
         .route("/fragments/sandbox-list", get(fragments::sandbox_list))
         .route("/fragments/system-metrics", get(fragments::system_metrics))
