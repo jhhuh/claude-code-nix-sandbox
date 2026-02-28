@@ -58,6 +58,14 @@
     sandboxes = json.loads(result)
     assert len(sandboxes) == 1, f"Expected 1 sandbox, got {len(sandboxes)}"
 
+    # 4b. REST log endpoint returns content (stub echoes before sleeping)
+    import time
+    time.sleep(1)  # Give pipe-pane time to capture initial output
+    result = server.succeed(
+        f"curl -sf http://localhost:3000/api/sandboxes/{sandbox_id}/logs"
+    )
+    assert "Stub sandbox" in result, f"Expected stub output in logs, got: {result}"
+
     # 5. Stop the sandbox (returns 204)
     server.succeed(
         f"curl -sf -X POST http://localhost:3000/api/sandboxes/{sandbox_id}/stop"
@@ -73,6 +81,11 @@
     # 7. Delete the sandbox (returns 204)
     server.succeed(
         f"curl -sf -X DELETE http://localhost:3000/api/sandboxes/{sandbox_id}"
+    )
+
+    # 7b. Log file cleaned up after delete
+    server.succeed(
+        f"test ! -f /var/lib/claude-manager/logs/{sandbox_id}.log"
     )
 
     # 8. List should be empty again
