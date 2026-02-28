@@ -11,10 +11,13 @@
     let
       supportedSystems = [ "x86_64-linux" "aarch64-linux" ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
+      sandboxOverlay = final: prev: {
+        chromiumSandbox = prev.callPackage ./nix/chromium.nix { };
+      };
       pkgsFor = system: import nixpkgs {
         inherit system;
         config.allowUnfree = true;
-        overlays = [ claude-code-nix.overlays.default ];
+        overlays = [ claude-code-nix.overlays.default sandboxOverlay ];
       };
     in
     {
@@ -32,7 +35,7 @@
           container = pkgs.callPackage ./nix/backends/container.nix {
             nixos = args: (nixpkgs.lib.nixosSystem {
               inherit system;
-              modules = [ { nixpkgs.overlays = [ claude-code-nix.overlays.default ]; } ] ++ args.imports;
+              modules = [ { nixpkgs.overlays = [ claude-code-nix.overlays.default sandboxOverlay ]; } ] ++ args.imports;
             });
           };
 
@@ -40,7 +43,7 @@
             network = false;
             nixos = args: (nixpkgs.lib.nixosSystem {
               inherit system;
-              modules = [ { nixpkgs.overlays = [ claude-code-nix.overlays.default ]; } ] ++ args.imports;
+              modules = [ { nixpkgs.overlays = [ claude-code-nix.overlays.default sandboxOverlay ]; } ] ++ args.imports;
             });
           };
 
@@ -48,7 +51,7 @@
           vm = pkgs.callPackage ./nix/backends/vm.nix {
             nixos = args: (nixpkgs.lib.nixosSystem {
               inherit system;
-              modules = [ { nixpkgs.overlays = [ claude-code-nix.overlays.default ]; } ] ++ args.imports;
+              modules = [ { nixpkgs.overlays = [ claude-code-nix.overlays.default sandboxOverlay ]; } ] ++ args.imports;
             });
           };
 
@@ -56,7 +59,7 @@
             network = false;
             nixos = args: (nixpkgs.lib.nixosSystem {
               inherit system;
-              modules = [ { nixpkgs.overlays = [ claude-code-nix.overlays.default ]; } ] ++ args.imports;
+              modules = [ { nixpkgs.overlays = [ claude-code-nix.overlays.default sandboxOverlay ]; } ] ++ args.imports;
             });
           };
 

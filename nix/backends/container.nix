@@ -11,6 +11,7 @@
   writeShellApplication,
   systemd,
   coreutils,
+  chromiumSandbox,
   nixos,
   # Toggle host network access (set false for private network)
   network ? true,
@@ -35,6 +36,7 @@ let
           git
           gh
           openssh
+          nodejs
           coreutils
           bash
           nix
@@ -162,6 +164,10 @@ writeShellApplication {
     echo "passwd: files" > "$container_root/etc/nsswitch.conf"
     echo "group: files" >> "$container_root/etc/nsswitch.conf"
 
+    # Chromium managed policy: force-install Claude in Chrome extension
+    mkdir -p "$container_root/etc/chromium/policies/managed"
+    cp ${chromiumSandbox.extensionPolicy} "$container_root/etc/chromium/policies/managed/default.json"
+
     # Display forwarding args
     display_args=()
     if [[ -n "''${DISPLAY:-}" ]]; then
@@ -241,15 +247,6 @@ writeShellApplication {
     chromium_profile="$project_dir/.config/chromium"
     mkdir -p "$chromium_profile"
     chown "$real_uid:$real_gid" "$chromium_profile"
-    chromium_wrapper="$project_dir/.config/chromium-wrapper"
-    mkdir -p "$chromium_wrapper"
-    cat > "$chromium_wrapper/chromium" << WEOF
-#!/usr/bin/env sh
-exec ${toplevel}/sw/bin/chromium --user-data-dir="$chromium_profile" "\$@"
-WEOF
-    chmod +x "$chromium_wrapper/chromium"
-    cp "$chromium_wrapper/chromium" "$chromium_wrapper/chromium-browser"
-    chown -R "$real_uid:$real_gid" "$chromium_wrapper"
 
     # Git and SSH forwarding (read-only)
     git_args=()
@@ -349,7 +346,8 @@ WEOF
       "''${entrypoint_args[@]}" \
       "''${console_args[@]}" \
       --setenv=HOME="$real_home" \
-      --setenv=PATH="$chromium_wrapper:${toplevel}/sw/bin" \
+      --setenv=CHROMIUM_USER_DATA_DIR="$chromium_profile" \
+      --setenv=PATH="${chromiumSandbox}/bin:${toplevel}/sw/bin" \
       --setenv=TERM="''${TERM:-xterm-256color}" \
       --setenv=NIX_REMOTE=daemon \
       --as-pid2 \

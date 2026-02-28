@@ -25,26 +25,16 @@ fi
 
 Chromium uses abstract Unix sockets (which live in the network namespace, not the filesystem) for IPC. The socket name is derived from the **profile path string**. If two sandboxes both mount different storage to the same in-sandbox path (`~/.config/chromium`), the path strings are identical → same abstract socket → collision.
 
-**Fix**: Wrapper script with unique `--user-data-dir`. Create a shell wrapper at `<project-dir>/.config/chromium-wrapper/chromium` that invokes the real binary with `--user-data-dir=<project-dir>/.config/chromium`. Since each project's real path is unique, the abstract socket names differ.
+**Fix**: The `chromiumSandbox` package (nix/chromium.nix) reads `CHROMIUM_USER_DATA_DIR` env var and passes `--user-data-dir` to the real binary. Each backend sets this env var to `$project_dir/.config/chromium`, giving each project a globally unique abstract socket name.
 
 ```bash
-chromium_profile="$project_dir/.config/chromium"
-mkdir -p "$chromium_profile"
-chromium_wrapper="$project_dir/.config/chromium-wrapper"
-mkdir -p "$chromium_wrapper"
-cat > "$chromium_wrapper/chromium" << WEOF
-#!/usr/bin/env sh
-exec /path/to/real/chromium --user-data-dir="$chromium_profile" "\$@"
-WEOF
-chmod +x "$chromium_wrapper/chromium"
-cp "$chromium_wrapper/chromium" "$chromium_wrapper/chromium-browser"
-# Prepend to PATH so wrapper takes precedence
---setenv PATH "$chromium_wrapper:$original_path"
+# Backend sets the env var:
+--setenv CHROMIUM_USER_DATA_DIR "$chromium_profile"
+# chromiumSandbox wrapper handles the rest:
+exec chromium --user-data-dir=$CHROMIUM_USER_DATA_DIR "$@"
 ```
 
-### Shebang caveat
-
-The wrapper script must use `#!/usr/bin/env sh`, not `#!/bin/sh`. Bubblewrap sandboxes don't have `/bin/sh` — only `/usr/bin/env` (explicitly bind-mounted). The nspawn container has `/usr/bin/env` symlinked to the NixOS system closure.
+This replaced the previous approach of generating runtime wrapper scripts at `<project-dir>/.config/chromium-wrapper/` — the Nix package handles it now.
 
 ## Why not `--unshare-net`?
 

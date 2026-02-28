@@ -174,6 +174,10 @@ let
         # Forward host DNS/TLS/fonts config
         environment.etc = {
           "fonts/fonts.conf".source = lib.mkDefault "${pkgs.fontconfig.out}/etc/fonts/fonts.conf";
+          # Chromium managed policy: force-install Claude in Chrome extension
+          "chromium/policies/managed/default.json".text = builtins.toJSON {
+            ExtensionInstallForcelist = [ "fcoeoabgfenejglbffodgkkbkcdhcgfn" ];
+          };
         };
 
         system.stateVersion = "24.11";

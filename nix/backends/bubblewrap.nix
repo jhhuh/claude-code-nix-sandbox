@@ -11,11 +11,12 @@
   symlinkJoin,
   bubblewrap,
   claude-code,
-  chromium,
+  chromiumSandbox,
   coreutils,
   bash,
   git,
   openssh,
+  nodejs,
   nix,
   # Toggle host network access (set false to --unshare-net)
   network ? true,
@@ -28,11 +29,12 @@ let
     name = "claude-sandbox-path";
     paths = [
       claude-code
-      chromium
+      chromiumSandbox
       coreutils
       bash
       git
       openssh
+      nodejs
       nix
     ] ++ extraPackages;
   };
@@ -129,6 +131,12 @@ writeShellApplication {
       fi
     fi
 
+    # Keyring socket forwarding (gnome-keyring, KDE wallet)
+    keyring_args=()
+    if [[ -n "''${XDG_RUNTIME_DIR:-}" ]] && [[ -d "$XDG_RUNTIME_DIR/keyring" ]]; then
+      keyring_args+=(--ro-bind "$XDG_RUNTIME_DIR/keyring" "$XDG_RUNTIME_DIR/keyring")
+    fi
+
     # Determine sandbox home directory
     sandbox_home="$HOME"
 
@@ -154,14 +162,6 @@ writeShellApplication {
     # project's real path as --user-data-dir gives each sandbox a unique socket.
     chromium_profile="$project_dir/.config/chromium"
     mkdir -p "$chromium_profile"
-    chromium_wrapper="$project_dir/.config/chromium-wrapper"
-    mkdir -p "$chromium_wrapper"
-    cat > "$chromium_wrapper/chromium" << WEOF
-#!/usr/bin/env sh
-exec ${sandboxPath}/bin/chromium --user-data-dir="$chromium_profile" "\$@"
-WEOF
-    chmod +x "$chromium_wrapper/chromium"
-    cp "$chromium_wrapper/chromium" "$chromium_wrapper/chromium-browser"
 
     # Git and SSH forwarding (read-only)
     git_args=()
@@ -263,6 +263,10 @@ WEOF
       --ro-bind-try /etc/nsswitch.conf /etc/nsswitch.conf \
       --ro-bind-try /etc/nix /etc/nix \
       --ro-bind-try /etc/static /etc/static \
+      --dir /etc/chromium \
+      --dir /etc/chromium/policies \
+      --dir /etc/chromium/policies/managed \
+      --ro-bind ${chromiumSandbox.extensionPolicy} /etc/chromium/policies/managed/default.json \
       --dir /bin \
       --symlink "${sandboxPath}/bin/bash" /bin/bash \
       --symlink "${sandboxPath}/bin/bash" /bin/sh \
@@ -274,9 +278,11 @@ WEOF
       "''${wayland_args[@]}" \
       "''${dbus_args[@]}" \
       "''${audio_args[@]}" \
+      "''${keyring_args[@]}" \
       "''${env_args[@]}" \
       --setenv HOME "$sandbox_home" \
-      --setenv PATH "$chromium_wrapper:${sandboxPath}/bin" \
+      --setenv CHROMIUM_USER_DATA_DIR "$chromium_profile" \
+      --setenv PATH "${sandboxPath}/bin" \
       --setenv TERM "''${TERM:-xterm-256color}" \
       --setenv NIX_REMOTE daemon \
       --setenv XDG_RUNTIME_DIR "''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" \

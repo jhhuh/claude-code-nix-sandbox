@@ -12,6 +12,8 @@
 let
   cfg = config.services.claude-sandbox;
 
+  chromiumSandbox = pkgs.callPackage ../../nix/chromium.nix { };
+
   nixos = args: import "${pkgs.path}/nixos/lib/eval-config.nix" {
     modules = args.imports;
     system = pkgs.stdenv.hostPlatform.system;
@@ -70,12 +72,13 @@ in
     environment.systemPackages =
       lib.optional cfg.bubblewrap.enable
         (pkgs.callPackage ../../nix/backends/bubblewrap.nix {
+          inherit chromiumSandbox;
           inherit (cfg) network;
           inherit (cfg.bubblewrap) extraPackages;
         })
       ++ lib.optional cfg.container.enable
         (pkgs.callPackage ../../nix/backends/container.nix {
-          inherit nixos;
+          inherit chromiumSandbox nixos;
           inherit (cfg) network;
           inherit (cfg.container) extraModules;
         })
