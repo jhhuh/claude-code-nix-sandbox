@@ -8,6 +8,12 @@ Launch sandboxed [Claude Code](https://docs.anthropic.com/en/docs/agents-and-too
 
 Claude Code (from [sadjow/claude-code-nix](https://github.com/sadjow/claude-code-nix)) runs inside an isolated sandbox with filesystem isolation, display forwarding, and a Chromium browser. Three backends available with increasing isolation: [bubblewrap](https://github.com/containers/bubblewrap) (unprivileged), [systemd-nspawn](https://www.freedesktop.org/software/systemd/man/latest/systemd-nspawn.html) (root), and QEMU VM (strongest).
 
+## Web Dashboard
+
+![Dashboard — sandbox list with live screenshots and system metrics](docs/src/images/dashboard.png)
+
+![Sandbox detail — live screenshot, Claude metrics, and WebSocket log viewer](docs/src/images/sandbox-detail.png)
+
 ## Quick Start
 
 ### Bubblewrap (unprivileged)
@@ -139,7 +145,7 @@ claude-remote ui                    # SSH tunnel, then open http://localhost:300
 
 ### Web Dashboard
 
-The dashboard shows all sandboxes with live screenshots, status badges, and system metrics. Sandbox detail pages show Claude session metrics (tokens, tool uses, message count) and a live screenshot feed.
+The dashboard shows all sandboxes with live screenshots, status badges, and system metrics. Sandbox detail pages include Claude session metrics (tokens, tool uses, message count), a live screenshot feed, and a real-time log viewer that streams tmux output via WebSocket.
 
 Auto-refreshes via htmx (no JavaScript build step). Access it by running `claude-remote ui` to set up an SSH tunnel, then open `http://localhost:3000`.
 
@@ -159,10 +165,14 @@ curl localhost:3000/api/sandboxes/<id>
 curl -X POST localhost:3000/api/sandboxes/<id>/stop
 curl -X DELETE localhost:3000/api/sandboxes/<id>
 
-# Screenshots and metrics
+# Screenshots, logs, and metrics
 curl localhost:3000/api/sandboxes/<id>/screenshot -o screenshot.png
+curl localhost:3000/api/sandboxes/<id>/logs          # full log as text/plain
 curl localhost:3000/api/sandboxes/<id>/metrics
 curl localhost:3000/api/metrics/system
+
+# WebSocket log streaming (real-time)
+# ws://localhost:3000/ws/sandboxes/<id>/logs
 ```
 
 ## NixOS Modules

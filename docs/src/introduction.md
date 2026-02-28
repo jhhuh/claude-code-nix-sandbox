@@ -14,6 +14,12 @@ Claude Code (from [sadjow/claude-code-nix](https://github.com/sadjow/claude-code
 
 A remote sandbox manager is also provided: a Rust/Axum daemon with a web dashboard and CLI for managing sandboxes on a server over SSH.
 
+## Web Dashboard
+
+![Dashboard — sandbox list with live screenshots and system metrics](./images/dashboard.png)
+
+![Sandbox detail — live screenshot, Claude metrics, and WebSocket log viewer](./images/sandbox-detail.png)
+
 ## Features
 
 - **Pure Nix** — no shell/Python wrappers; all orchestration in Nix
@@ -22,4 +28,24 @@ A remote sandbox manager is also provided: a Rust/Axum daemon with a web dashboa
 - **Nix commands** — `NIX_REMOTE=daemon` forwarding so `nix build` works inside sandboxes
 - **Display forwarding** — X11, Wayland, GPU acceleration (bubblewrap/container) or QEMU window (VM)
 - **Audio forwarding** — PipeWire/PulseAudio (bubblewrap/container)
-- **Remote management** — web dashboard with live screenshots, metrics, and a CLI over SSH
+- **D-Bus session bus proxy** — filtered via `xdg-dbus-proxy` (keyring/Secret Service only, blocks Chromium singleton collisions)
+- **Remote management** — web dashboard with live screenshots, real-time log streaming via WebSocket, metrics, and a CLI over SSH
+
+## Quick Start
+
+```bash
+# Bubblewrap (unprivileged, default)
+nix run github:jhhuh/claude-code-nix-sandbox -- /path/to/project
+
+# systemd-nspawn container (requires sudo)
+nix build github:jhhuh/claude-code-nix-sandbox#container
+sudo ./result/bin/claude-sandbox-container /path/to/project
+
+# QEMU VM (strongest isolation)
+nix build github:jhhuh/claude-code-nix-sandbox#vm
+./result/bin/claude-sandbox-vm /path/to/project
+```
+
+Requires `ANTHROPIC_API_KEY` in your environment, or an existing `~/.claude` login (auto-mounted).
+
+See [Getting Started](./getting-started.md) for full details.

@@ -77,12 +77,25 @@
           cli = pkgs.callPackage ./scripts/claude-remote.nix { };
 
           # Documentation site (mdBook)
-          docs = pkgs.stdenv.mkDerivation {
+          # nix build .#docs  → static HTML in result/
+          # nix run  .#docs   → live preview via mdbook serve
+          docs = let
+            docsSrc = ./docs;
+            serveScript = pkgs.writeShellScript "claude-sandbox-docs" ''
+              dest=$(mktemp -d)
+              trap 'rm -rf "$dest"' EXIT
+              exec ${pkgs.mdbook}/bin/mdbook serve ${docsSrc} --dest-dir "$dest"
+            '';
+          in pkgs.stdenv.mkDerivation {
             name = "claude-sandbox-docs";
-            src = ./docs;
+            src = docsSrc;
             nativeBuildInputs = [ pkgs.mdbook ];
             buildPhase = "mdbook build";
-            installPhase = "cp -r book $out";
+            installPhase = ''
+              mkdir -p $out/bin
+              cp -r book/* $out/
+              ln -s ${serveScript} $out/bin/claude-sandbox-docs
+            '';
           };
         });
 

@@ -117,6 +117,26 @@ Returns system-wide metrics: CPU usage, memory, disk, and load averages.
 curl localhost:3000/api/metrics/system
 ```
 
+### Get logs
+
+```
+GET /api/sandboxes/<id>/logs
+```
+
+Returns the full log file (tmux pipe-pane output) as `text/plain`.
+
+```bash
+curl localhost:3000/api/sandboxes/<id>/logs
+```
+
+### Stream logs (WebSocket)
+
+```
+GET /ws/sandboxes/<id>/logs
+```
+
+Upgrades to a WebSocket connection. Sends the last 1000 lines as initial backlog, then pushes new lines in real time as the sandbox produces output.
+
 ## Sandbox object
 
 ```json

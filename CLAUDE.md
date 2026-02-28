@@ -110,3 +110,4 @@ Non-obvious patterns discovered during development — read before modifying rel
 - `artifacts/skills/claude-code-session-jsonl-extraction.md — JSONL structure, jq extraction patterns, session summarizer tool`
 - `artifacts/skills/chromium-cross-sandbox-isolation-dbus-and-cdp.md — D-Bus singleton + CDP port conflict, per-project profile fix`
 - `artifacts/skills/chromium-extension-bundling-via-managed-policy.md — why managed policy for extension install, alternatives considered, per-backend mounting`
+- `artifacts/skills/nix-dual-purpose-derivation-build-and-run.md — writeShellScript + symlink for nix build (static) + nix run (serve) from one derivation`
