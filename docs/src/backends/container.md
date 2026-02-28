@@ -63,7 +63,7 @@ pkgs.callPackage ./nix/backends/container.nix {
 
 - X11 display socket and Xauthority (copied into container root)
 - Wayland socket
-- D-Bus system bus socket (session bus intentionally NOT forwarded)
+- D-Bus system bus and session bus (Chromium isolated from session bus via wrapper)
 - GPU (`/dev/dri`, `/dev/shm`, `/run/opengl-driver`)
 - PipeWire and PulseAudio sockets
 - SSH agent (remapped to `/run/user/<uid>/ssh-agent.sock`)

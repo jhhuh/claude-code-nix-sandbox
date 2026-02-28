@@ -23,7 +23,7 @@ The sandbox script imports `nix/sandbox-spec.nix` for the canonical package list
 
 - **Filesystem**: `/nix/store` read-only, project directory read-write, `~/.claude` read-write, `/home` as tmpfs
 - **Display**: X11 socket + Xauthority, Wayland socket forwarded
-- **D-Bus**: system bus socket forwarded (session bus intentionally NOT forwarded to prevent Chromium singleton collisions)
+- **D-Bus**: system bus and session bus forwarded (Chromium isolated from session bus via `env -u DBUS_SESSION_BUS_ADDRESS` in wrapper to prevent singleton collisions)
 - **GPU**: `/dev/dri` and `/run/opengl-driver` forwarded for hardware acceleration
 - **Audio**: PipeWire and PulseAudio sockets forwarded
 - **Network**: shared with host by default, `--unshare-net` when `network = false`
