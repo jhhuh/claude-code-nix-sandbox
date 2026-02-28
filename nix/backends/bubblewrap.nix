@@ -15,6 +15,7 @@
   coreutils,
   bash,
   git,
+  gh,
   openssh,
   nodejs,
   nix,
@@ -33,6 +34,7 @@ let
       coreutils
       bash
       git
+      gh
       openssh
       nodejs
       nix
