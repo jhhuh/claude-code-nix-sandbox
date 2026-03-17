@@ -17,6 +17,7 @@
     gh
     openssh
     nodejs
+    tmux
     coreutils
     bash
     nix
