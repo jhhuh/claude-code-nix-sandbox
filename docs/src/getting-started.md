@@ -10,16 +10,26 @@
 
 ## Quick Start
 
-### Bubblewrap (unprivileged)
+### Install (both sandboxed and un-sandboxed)
 
-The default package. No root required.
+The default package bundles `claude-sandbox` (bubblewrap) and `claude` (un-sandboxed) together:
+
+```bash
+# Install both binaries
+nix profile install github:jhhuh/claude-code-nix-sandbox
+
+# Update to latest
+nix profile upgrade claude-code-nix-sandbox --refresh
+```
+
+### Bubblewrap (unprivileged)
 
 ```bash
 # Run Claude Code in a sandbox
-nix run github:jhhuh/claude-code-nix-sandbox -- /path/to/project
+nix run github:jhhuh/claude-code-nix-sandbox#sandbox -- /path/to/project
 
 # Drop into a shell inside the sandbox
-nix run github:jhhuh/claude-code-nix-sandbox -- --shell /path/to/project
+nix run github:jhhuh/claude-code-nix-sandbox#sandbox -- --shell /path/to/project
 ```
 
 ### systemd-nspawn container (requires sudo)
@@ -60,7 +70,8 @@ All three backends automatically forward these from your host:
 
 | Package | Binary | Description |
 |---|---|---|
-| `default` | `claude-sandbox` | Bubblewrap with network |
+| `default` | `claude-sandbox`, `claude` | Bubblewrap sandbox + un-sandboxed claude-code (bundled) |
+| `sandbox` | `claude-sandbox` | Bubblewrap sandbox only |
 | `no-network` | `claude-sandbox` | Bubblewrap without network |
 | `container` | `claude-sandbox-container` | systemd-nspawn with network |
 | `container-no-network` | `claude-sandbox-container` | systemd-nspawn without network |

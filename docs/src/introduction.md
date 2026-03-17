@@ -34,8 +34,11 @@ A remote sandbox manager is also provided: a Rust/Axum daemon with a web dashboa
 ## Quick Start
 
 ```bash
-# Bubblewrap (unprivileged, default)
-nix run github:jhhuh/claude-code-nix-sandbox -- /path/to/project
+# Install both claude-sandbox and claude-code (bundled)
+nix profile install github:jhhuh/claude-code-nix-sandbox
+
+# Bubblewrap (unprivileged)
+nix run github:jhhuh/claude-code-nix-sandbox#sandbox -- /path/to/project
 
 # systemd-nspawn container (requires sudo)
 nix build github:jhhuh/claude-code-nix-sandbox#container

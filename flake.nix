@@ -27,7 +27,16 @@
       packages = forAllSystems (system:
         let pkgs = pkgsFor system;
         in {
-          default = pkgs.callPackage ./nix/backends/bubblewrap.nix { };
+          default = pkgs.symlinkJoin {
+            name = "claude-code-sandbox";
+            paths = [
+              (pkgs.callPackage ./nix/backends/bubblewrap.nix { })
+              pkgs.claude-code
+            ];
+          };
+
+          # Bubblewrap sandbox only (without bundled claude-code)
+          sandbox = pkgs.callPackage ./nix/backends/bubblewrap.nix { };
 
           # Variant with network isolation
           no-network = pkgs.callPackage ./nix/backends/bubblewrap.nix {

@@ -16,14 +16,26 @@ Claude Code (from [sadjow/claude-code-nix](https://github.com/sadjow/claude-code
 
 ## Quick Start
 
+### Install (both sandboxed and un-sandboxed)
+
+```bash
+# Install both claude-sandbox and claude-code
+nix profile install github:jhhuh/claude-code-nix-sandbox
+
+# Update to latest
+nix profile upgrade claude-code-nix-sandbox --refresh
+```
+
+This gives you both `claude-sandbox` (bubblewrap isolation) and `claude` (un-sandboxed) on your PATH, pinned to the same version.
+
 ### Bubblewrap (unprivileged)
 
 ```bash
 # Run Claude Code in a sandbox
-nix run github:jhhuh/claude-code-nix-sandbox -- /path/to/project
+nix run github:jhhuh/claude-code-nix-sandbox#sandbox -- /path/to/project
 
 # Drop into a shell inside the sandbox
-nix run github:jhhuh/claude-code-nix-sandbox -- --shell /path/to/project
+nix run github:jhhuh/claude-code-nix-sandbox#sandbox -- --shell /path/to/project
 ```
 
 ### systemd-nspawn container (requires sudo)
@@ -79,8 +91,9 @@ Git push/pull works inside all sandboxes — `~/.gitconfig`, `~/.config/git/`, `
 
 | Package | Description | Requires |
 |---|---|---|
-| `default` | Bubblewrap sandbox (network) | User namespaces |
-| `no-network` | Bubblewrap sandbox (isolated) | User namespaces |
+| `default` | Bubblewrap sandbox + un-sandboxed claude-code (bundled) | User namespaces |
+| `sandbox` | Bubblewrap sandbox only | User namespaces |
+| `no-network` | Bubblewrap sandbox (no network) | User namespaces |
 | `container` | systemd-nspawn (network) | root (sudo) |
 | `container-no-network` | systemd-nspawn (isolated) | root (sudo) |
 | `vm` | QEMU VM (NAT) | KVM recommended |

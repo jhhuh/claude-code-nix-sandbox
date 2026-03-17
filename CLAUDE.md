@@ -56,7 +56,8 @@ State is persisted as JSON (`state.json`). On startup, the manager loads state a
 
 ```bash
 # Sandbox backends
-nix build                                 # Build default (bubblewrap)
+nix build                                 # Build default (bubblewrap + claude-code bundled)
+nix build .#sandbox                       # Build bubblewrap sandbox only
 nix build .#container                     # Build nspawn container
 nix build .#vm                            # Build QEMU VM
 nix flake check                           # Evaluate + build all packages
