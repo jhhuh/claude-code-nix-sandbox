@@ -28,6 +28,9 @@ nix profile upgrade claude-code-nix-sandbox --refresh
 # Run Claude Code in a sandbox
 nix run github:jhhuh/claude-code-nix-sandbox#sandbox -- /path/to/project
 
+# Run inside tmux (needed for agent teams)
+nix run github:jhhuh/claude-code-nix-sandbox#sandbox -- --tmux /path/to/project
+
 # Drop into a shell inside the sandbox
 nix run github:jhhuh/claude-code-nix-sandbox#sandbox -- --shell /path/to/project
 ```

@@ -12,6 +12,9 @@ nix build github:jhhuh/claude-code-nix-sandbox
 ./result/bin/claude-sandbox /path/to/project
 ./result/bin/claude-sandbox --shell /path/to/project
 
+# Run inside tmux (needed for agent teams)
+./result/bin/claude-sandbox --tmux /path/to/project
+
 # Without network
 nix build github:jhhuh/claude-code-nix-sandbox#no-network
 ./result/bin/claude-sandbox /path/to/project
@@ -30,6 +33,15 @@ The sandbox script imports `nix/sandbox-spec.nix` for the canonical package list
 - **Nix**: daemon socket forwarded with `NIX_REMOTE=daemon`
 
 The sandbox home is `/home/sandbox`. The process runs as your user (no UID mapping).
+
+## tmux mode (`--tmux`)
+
+The `--tmux` flag starts claude-code inside a tmux session, required for Claude Code's experimental agent teams feature. The tmux state is stored per-project in `<project-dir>/.tmux/`:
+
+- **`tmux.conf`** — minimal config, created on first run, editable and persistent across restarts
+- **`socket`** — tmux server socket (runtime, per-project to avoid collisions)
+
+The session is named `sandbox:<project-name>` with an orange status bar to visually distinguish it from host tmux sessions.
 
 ## Nix parameters
 
