@@ -1,6 +1,6 @@
 # Bubblewrap sandbox backend for Claude Code + Chromium
 #
-# Usage: claude-sandbox [--shell] [--gh-token] <project-dir> [claude args...]
+# Usage: claude-sandbox [--shell] [--tmux] [--gh-token] <project-dir> [claude args...]
 #
 # Produces a writeShellApplication that wraps bwrap to isolate
 # claude-code and chromium with access to a single project directory.
@@ -35,10 +35,12 @@ writeShellApplication {
 
   text = ''
     shell_mode=false
+    tmux_mode=false
     gh_token=false
     while [[ "''${1:-}" == --* ]]; do
       case "''${1:-}" in
         --shell) shell_mode=true; shift ;;
+        --tmux) tmux_mode=true; shift ;;
         --gh-token) gh_token=true; shift ;;
         --help|-h) break ;;
         *) echo "Unknown option: $1" >&2; exit 1 ;;
@@ -46,8 +48,9 @@ writeShellApplication {
     done
 
     if [[ $# -lt 1 ]] || [[ "''${1:-}" == "--help" ]] || [[ "''${1:-}" == "-h" ]]; then
-      echo "Usage: claude-sandbox [--shell] [--gh-token] <project-dir> [claude args...]" >&2
+      echo "Usage: claude-sandbox [--shell] [--tmux] [--gh-token] <project-dir> [claude args...]" >&2
       echo "  --shell     Drop into bash instead of launching claude" >&2
+      echo "  --tmux      Run claude inside a tmux session (needed for agent teams)" >&2
       echo "  --gh-token  Forward GH_TOKEN/GITHUB_TOKEN env vars into sandbox" >&2
       exit 1
     fi
@@ -169,6 +172,24 @@ writeShellApplication {
     chromium_profile="$project_dir/.config/chromium"
     mkdir -p "$chromium_profile"
 
+    # Per-project tmux directory (same pattern as Chromium profile).
+    # Socket and config live here so each project gets its own tmux server.
+    tmux_dir="$project_dir/.tmux"
+    mkdir -p "$tmux_dir"
+    project_name="$(basename "$project_dir")"
+    tmux_session="sandbox:$project_name"
+    if [[ ! -f "$tmux_dir/tmux.conf" ]]; then
+      cat > "$tmux_dir/tmux.conf" << 'TMUXCONF'
+# Sandbox tmux config — edit freely, persists across sandbox restarts
+set -g mouse on
+set -g default-terminal "tmux-256color"
+set -g status-left "[#S] "
+set -g status-left-length 40
+set -g status-style "bg=colour208,fg=colour16,bold"
+set -g status-left-style "bg=colour166,fg=colour255,bold"
+TMUXCONF
+    fi
+
     # Git and SSH forwarding (read-only)
     git_args=()
     if [[ -f "$HOME/.gitconfig" ]]; then
@@ -228,6 +249,8 @@ writeShellApplication {
     # Select entrypoint
     if [[ "$shell_mode" == true ]]; then
       entrypoint=(bash)
+    elif [[ "$tmux_mode" == true ]]; then
+      entrypoint=(tmux -S "$tmux_dir/socket" -f "$tmux_dir/tmux.conf" new-session -s "$tmux_session" -- claude "$@")
     else
       entrypoint=(claude "$@")
     fi
