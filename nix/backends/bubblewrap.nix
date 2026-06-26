@@ -155,14 +155,17 @@ writeShellApplication {
       xdg_runtime_args+=(--dir "$XDG_RUNTIME_DIR")
     fi
 
-    # Claude auth and config persistence
+    # Claude auth and config persistence.
+    # Bind ~/.claude (login token in .credentials.json, settings.json permissions);
+    # it's a directory, so the bind source is stable.
+    # ~/.claude.json is intentionally NOT bound: claude-code rewrites it via
+    # atomic rename, so binding the live file races with a host session and
+    # aborts the launch. The sandbox gets a fresh per-session ~/.claude.json in
+    # its tmpfs HOME, which also keeps sandbox activity out of host global state.
     claude_auth_args=()
     host_claude_dir="''${HOME}/.claude"
     mkdir -p "$host_claude_dir"
     claude_auth_args+=(--bind "$host_claude_dir" "$sandbox_home/.claude")
-    if [[ -f "''${HOME}/.claude.json" ]]; then
-      claude_auth_args+=(--bind "''${HOME}/.claude.json" "$sandbox_home/.claude.json")
-    fi
 
     # Per-project Chromium profile with unique user-data-dir path.
     # Chromium derives abstract socket names from the profile path. Since all
