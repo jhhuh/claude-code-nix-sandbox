@@ -17,6 +17,7 @@
     gh
     openssh
     nodejs
+    bun  # some claude-code plugin hooks use #!/usr/bin/env bun
     python3  # claude-code's security-guidance SessionStart hook needs a Python 3 interpreter
     tmux
     coreutils
