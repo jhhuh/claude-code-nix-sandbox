@@ -17,6 +17,7 @@
     gh
     openssh
     nodejs
+    python3  # claude-code's security-guidance SessionStart hook needs a Python 3 interpreter
     tmux
     coreutils
     bash
