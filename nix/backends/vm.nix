@@ -129,10 +129,8 @@ let
                   ln -sfn "/home/sandbox/$item" "$host_home/$item"
                 fi
               done
-              # Claude config file from metadata
-              if [[ -f /mnt/meta/claude.json ]]; then
-                cp /mnt/meta/claude.json "$host_home/.claude.json"
-              fi
+              # ~/.claude.json intentionally not seeded: each VM gets a fresh
+              # per-session file (see host-side meta setup).
             fi
             if [[ -f /mnt/meta/host_project ]]; then
               host_project=$(cat /mnt/meta/host_project)
@@ -265,9 +263,9 @@ writeShellApplication {
     echo "$HOME" > "$meta_dir/host_home"
     echo "$project_dir" > "$meta_dir/host_project"
 
-    if [[ -f "''${HOME}/.claude.json" ]]; then
-      cp "''${HOME}/.claude.json" "$meta_dir/claude.json"
-    fi
+    # ~/.claude.json intentionally not shared: claude-code rewrites it via
+    # atomic rename and it holds only per-session/onboarding state, not the
+    # login token. Each VM starts with a fresh ~/.claude.json.
 
     # Forward GH_TOKEN if requested
     if [[ "$gh_token" == true ]]; then

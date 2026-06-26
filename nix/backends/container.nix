@@ -241,15 +241,17 @@ writeShellApplication {
       keyring_args+=("--bind-ro=$runtime_dir/keyring:/run/user/$real_uid/keyring")
     fi
 
-    # Claude auth and config persistence
+    # Claude auth and config persistence.
+    # Bind ~/.claude (login token in .credentials.json, settings.json permissions).
+    # ~/.claude.json is intentionally NOT bound: claude-code rewrites it via
+    # atomic rename, so binding the live file races with a host session. Each
+    # sandbox gets a fresh per-session ~/.claude.json in its own home, which
+    # also keeps sandbox activity out of host global state.
     claude_auth_args=()
     host_claude_dir="$real_home/.claude"
     mkdir -p "$host_claude_dir"
     chown "$real_uid:$real_gid" "$host_claude_dir"
     claude_auth_args+=(--bind="$host_claude_dir":"$real_home/.claude")
-    if [[ -f "$real_home/.claude.json" ]]; then
-      claude_auth_args+=(--bind="$real_home/.claude.json":"$real_home/.claude.json")
-    fi
 
     # Per-project Chromium profile with unique user-data-dir path.
     # See bubblewrap.nix comment for why the real project path is needed.

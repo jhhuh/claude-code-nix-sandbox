@@ -60,7 +60,11 @@
   # --- DOCUMENTED CHECKLIST (backends implement explicitly) ---
   #
   # Dotfile mounts (mechanism differs per backend):
-  #   ~/.claude, ~/.claude.json    — auth persistence (bind / 9p)
+  #   ~/.claude                    — auth persistence (bind / 9p); login token in
+  #                                  .credentials.json, permissions in settings.json
+  #   ~/.claude.json               — NOT shared: claude-code rewrites it via atomic
+  #                                  rename (bind races) and it holds only per-session/
+  #                                  onboarding state. Each sandbox gets a fresh one.
   #   ~/.gitconfig, ~/.config/git  — git config (ro-bind / 9p)
   #   ~/.ssh                       — SSH keys (ro-bind / 9p)
   #   ~/.config/gh                 — GitHub CLI config (ro-bind / 9p)
