@@ -62,9 +62,12 @@
   # Dotfile mounts (mechanism differs per backend):
   #   ~/.claude                    — auth persistence (bind / 9p); login token in
   #                                  .credentials.json, permissions in settings.json
-  #   ~/.claude.json               — NOT shared: claude-code rewrites it via atomic
-  #                                  rename (bind races) and it holds only per-session/
-  #                                  onboarding state. Each sandbox gets a fresh one.
+  #   ~/.claude.json               — seeded by COPY at launch, never bind-mounted
+  #                                  (claude-code rewrites it via atomic rename, so a
+  #                                  live bind races with a host session). It carries
+  #                                  the oauthAccount/onboarding state — without the
+  #                                  seed every sandbox prompts for login. Sandbox
+  #                                  writes stay local, never touch the host file.
   #   ~/.gitconfig, ~/.config/git  — git config (ro-bind / 9p)
   #   ~/.ssh                       — SSH keys (ro-bind / 9p)
   #   ~/.config/gh                 — GitHub CLI config (ro-bind / 9p)

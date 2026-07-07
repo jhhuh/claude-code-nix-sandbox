@@ -158,14 +158,21 @@ writeShellApplication {
     # Claude auth and config persistence.
     # Bind ~/.claude (login token in .credentials.json, settings.json permissions);
     # it's a directory, so the bind source is stable.
-    # ~/.claude.json is intentionally NOT bound: claude-code rewrites it via
-    # atomic rename, so binding the live file races with a host session and
-    # aborts the launch. The sandbox gets a fresh per-session ~/.claude.json in
-    # its tmpfs HOME, which also keeps sandbox activity out of host global state.
+    # ~/.claude.json is NOT bind-mounted: claude-code rewrites it via atomic
+    # rename, so binding the live file races with a host session and aborts
+    # the launch. Instead it is seeded by COPY: the file is opened on fd 11
+    # (pinning a consistent snapshot even mid-rename) and bwrap's --file
+    # writes it as a regular file in the tmpfs HOME. This carries the
+    # oauthAccount/onboarding state (no login prompt per sandbox) while
+    # sandbox writes still never touch host global state.
     claude_auth_args=()
     host_claude_dir="''${HOME}/.claude"
     mkdir -p "$host_claude_dir"
     claude_auth_args+=(--bind "$host_claude_dir" "$sandbox_home/.claude")
+    if [[ -f "''${HOME}/.claude.json" ]]; then
+      exec 11< "''${HOME}/.claude.json"
+      claude_auth_args+=(--perms 0600 --file 11 "$sandbox_home/.claude.json")
+    fi
 
     # Per-project Chromium profile with unique user-data-dir path.
     # Chromium derives abstract socket names from the profile path. Since all

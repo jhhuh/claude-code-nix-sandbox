@@ -243,15 +243,21 @@ writeShellApplication {
 
     # Claude auth and config persistence.
     # Bind ~/.claude (login token in .credentials.json, settings.json permissions).
-    # ~/.claude.json is intentionally NOT bound: claude-code rewrites it via
-    # atomic rename, so binding the live file races with a host session. Each
-    # sandbox gets a fresh per-session ~/.claude.json in its own home, which
-    # also keeps sandbox activity out of host global state.
+    # ~/.claude.json is NOT bind-mounted: claude-code rewrites it via atomic
+    # rename, so binding the live file races with a host session. Instead it
+    # is seeded by COPY into the ephemeral container root (like .Xauthority
+    # above) — carries the oauthAccount/onboarding state so the sandbox
+    # doesn't prompt for login, while writes stay in the ephemeral overlay.
     claude_auth_args=()
     host_claude_dir="$real_home/.claude"
     mkdir -p "$host_claude_dir"
     chown "$real_uid:$real_gid" "$host_claude_dir"
     claude_auth_args+=(--bind="$host_claude_dir":"$real_home/.claude")
+    if [[ -f "$real_home/.claude.json" ]]; then
+      cp "$real_home/.claude.json" "$container_root$real_home/.claude.json"
+      chown "$real_uid:$real_gid" "$container_root$real_home/.claude.json"
+      chmod 600 "$container_root$real_home/.claude.json"
+    fi
 
     # Per-project Chromium profile with unique user-data-dir path.
     # See bubblewrap.nix comment for why the real project path is needed.

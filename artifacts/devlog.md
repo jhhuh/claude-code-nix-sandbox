@@ -217,3 +217,30 @@ Verified: two concurrent bubblewrap sandboxes with chromium — each got indepen
 
 **Stale temp dir cleanup**: Container and VM backends now sweep orphaned `/tmp/claude-nspawn.*` and `/tmp/claude-vm-meta.*` dirs on startup. Container checks `machinectl show` to skip running instances; VM uses `fuser` to skip in-use disk images.
 
+
+## 2026-07-07 — Fix login prompt on every sandbox creation (~/.claude.json copy seeding)
+
+Commits `a4764aa`/`3b285ad` stopped sharing `~/.claude.json` (bind-mounting the
+live file raced with host claude-code's atomic-rename rewrites and aborted
+launches). Side effect discovered in use: `~/.claude.json` holds the
+`oauthAccount`/onboarding record, and claude-code re-runs login when it's
+missing — the token in `~/.claude/.credentials.json` alone is not enough. So
+every new sandbox prompted for login.
+
+Fix: seed each sandbox with a **copy** of the host file at launch instead of a
+bind. A launch-time copy is immune to the rename race, the in-sandbox file is a
+regular file (claude-code's own rename-rewrites work — they'd EBUSY on a
+single-file bind mountpoint), and sandbox writes still never touch host state.
+
+- bubblewrap: `exec 11< ~/.claude.json` + `--perms 0600 --file 11 <dest>`
+  (bwrap writes fd contents into the tmpfs HOME; fd pins a consistent snapshot)
+- container: `cp` into the ephemeral container root, same pattern as .Xauthority
+- VM: restored the meta-dir copy-in that 3b285ad had removed
+- spec checklist updated
+
+Verified in a live bubblewrap sandbox: file present with `oauthAccount`, 0600,
+and atomic rename over it succeeds. `.#sandbox` and `.#container` build clean.
+`.#vm` still fails on the pre-existing unrelated `virtualisation.vlans` nixpkgs
+regression (option removed upstream) — VM edit verified by inspection + parse.
+
+New skill file: `claude-json-login-state-copy-seeding-vs-bind-mount.md`.

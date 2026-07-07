@@ -129,8 +129,12 @@ let
                   ln -sfn "/home/sandbox/$item" "$host_home/$item"
                 fi
               done
-              # ~/.claude.json intentionally not seeded: each VM gets a fresh
-              # per-session file (see host-side meta setup).
+              # Claude config seeded by copy from metadata (carries
+              # oauthAccount/onboarding state; guest writes stay in the VM)
+              if [[ -f /mnt/meta/claude.json ]]; then
+                cp /mnt/meta/claude.json "$host_home/.claude.json"
+                chmod 600 "$host_home/.claude.json"
+              fi
             fi
             if [[ -f /mnt/meta/host_project ]]; then
               host_project=$(cat /mnt/meta/host_project)
@@ -263,9 +267,13 @@ writeShellApplication {
     echo "$HOME" > "$meta_dir/host_home"
     echo "$project_dir" > "$meta_dir/host_project"
 
-    # ~/.claude.json intentionally not shared: claude-code rewrites it via
-    # atomic rename and it holds only per-session/onboarding state, not the
-    # login token. Each VM starts with a fresh ~/.claude.json.
+    # ~/.claude.json seeded by COPY via the meta dir (not shared live):
+    # claude-code rewrites it via atomic rename, so sharing the live file
+    # races with a host session. The copy carries the oauthAccount/onboarding
+    # state so the VM doesn't prompt for login; guest writes stay in the VM.
+    if [[ -f "''${HOME}/.claude.json" ]]; then
+      cp "''${HOME}/.claude.json" "$meta_dir/claude.json"
+    fi
 
     # Forward GH_TOKEN if requested
     if [[ "$gh_token" == true ]]; then
