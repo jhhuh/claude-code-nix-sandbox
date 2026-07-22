@@ -244,3 +244,33 @@ and atomic rename over it succeeds. `.#sandbox` and `.#container` build clean.
 regression (option removed upstream) — VM edit verified by inspection + parse.
 
 New skill file: `claude-json-login-state-copy-seeding-vs-bind-mount.md`.
+
+## 2026-07-22 — /copy clipboard doesn't reach host from sandbox: add xclip
+
+Report: `/copy` inside a sandbox never fills the host X CLIPBOARD (works
+unsandboxed). Initial diagnosis went wrong twice, worth recording:
+
+1. Guessed OSC 52 + nested-tmux swallowing it; added set-clipboard/
+   terminal-features to the sandbox tmux.conf. Wrong: `--tmux` isn't the
+   default, so it didn't explain the failure.
+2. "Confirmed" the host has no clipboard binaries by running `command -v
+   xclip` etc. — but that shell is itself sandboxed, so it measured the
+   sandbox, not the host. Invalid premise. (User: "you have no ability in
+   checking the absence of tool on the host system.") User then confirmed
+   they DO have xclip on the host.
+
+Real mechanism (from the claude-code binary's own strings): `/copy` shells
+out to a clipboard binary — xclip/xsel (X11), wl-copy (Wayland), pbcopy
+(macOS) with `-selection clipboard`. It never uses OSC 52. The sandbox
+forwards DISPLAY + X socket + Xauthority but shipped no clipboard binary,
+so claude had nothing to exec and fell back to the file.
+
+Fix: add `xclip` to spec.packages. Reverted the pointless tmux.conf edit.
+
+Verified in a real sandbox shell: `printf hello | xclip -selection
+clipboard` exits 0 and `xclip -selection clipboard -o` reads `hello` back —
+a full round-trip through the host X CLIPBOARD selection. (Final /copy
+confirmation is the user's, since I can't observe their clipboard.)
+
+New skill: claude-code-copy-clipboard-needs-xclip-in-sandbox.md — includes
+the "can't probe host tools from inside the sandbox" lesson.

@@ -23,6 +23,8 @@
     coreutils
     bash
     nix
+    xclip  # claude-code's /copy shells out to a clipboard binary; reaches the
+           # host X CLIPBOARD via the forwarded DISPLAY/X socket/Xauthority
   ];
 
   # Chrome extensions force-installed via managed policy.

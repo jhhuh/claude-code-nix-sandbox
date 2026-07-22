@@ -112,4 +112,5 @@ Non-obvious patterns discovered during development — read before modifying rel
 - `artifacts/skills/chromium-cross-sandbox-isolation-dbus-and-cdp.md — D-Bus singleton + CDP port conflict, per-project profile fix`
 - `artifacts/skills/chromium-extension-bundling-via-managed-policy.md — why managed policy for extension install, alternatives considered, per-backend mounting`
 - `artifacts/skills/claude-json-login-state-copy-seeding-vs-bind-mount.md — ~/.claude.json holds login/onboarding state; seed by copy, never bind (atomic-rename races)`
+- `artifacts/skills/claude-code-copy-clipboard-needs-xclip-in-sandbox.md — /copy shells out to xclip/xsel (not OSC 52); sandbox must ship a clipboard binary; can't probe host tools from inside the sandbox`
 - `artifacts/skills/nix-dual-purpose-derivation-build-and-run.md — writeShellScript + symlink for nix build (static) + nix run (serve) from one derivation`
