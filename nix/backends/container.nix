@@ -1,7 +1,8 @@
 # systemd-nspawn container backend for Claude Code + Chromium
 #
-# Usage: claude-sandbox-container [--shell] [--gh-token] <project-dir> [claude args...]
+# Usage: claude-sandbox-container [--shell] [--gh-token] [project-dir] [-- claude args...]
 #        claude-sandbox-container bind <project-dir> <host-path> [container-path]
+#        project-dir defaults to the current directory; args after -- go to claude
 #
 # Launches a NixOS container via systemd-nspawn with claude-code and
 # chromium. Auto-escalates to root via sudo. Provides stronger isolation
@@ -81,34 +82,42 @@ writeShellApplication {
 
     shell_mode=false
     gh_token=false
-    while [[ "''${1:-}" == --* ]]; do
-      case "''${1:-}" in
-        --shell) shell_mode=true; shift ;;
-        --gh-token) gh_token=true; shift ;;
-        --help|-h) break ;;
-        *) echo "Unknown option: $1" >&2; exit 1 ;;
-      esac
-    done
+    project_dir="."
+    claude_args=()
 
-    if [[ $# -lt 1 ]] || [[ "''${1:-}" == "--help" ]] || [[ "''${1:-}" == "-h" ]]; then
-      echo "Usage: claude-sandbox-container [--shell] [--gh-token] <project-dir> [claude args...]" >&2
+    usage() {
+      echo "Usage: claude-sandbox-container [OPTIONS] [project-dir] [-- claude args...]" >&2
       echo "       claude-sandbox-container bind <project-dir> <host-path> [container-path]" >&2
       echo "" >&2
-      echo "Automatically escalates to root via sudo if needed." >&2
+      echo "  project-dir defaults to the current directory ('.')." >&2
+      echo "  Anything after '--' is passed straight to claude." >&2
+      echo "  Automatically escalates to root via sudo if needed." >&2
       echo "" >&2
       echo "  --shell     Drop into bash instead of launching claude" >&2
       echo "  --gh-token  Forward GH_TOKEN/GITHUB_TOKEN env vars into container" >&2
       echo "  bind        Bind-mount a host directory into a running container" >&2
-      exit 1
-    fi
+    }
 
-    project_dir="$(realpath "$1")"
-    shift
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --shell)    shell_mode=true; shift ;;
+        --gh-token) gh_token=true; shift ;;
+        --help|-h)  usage; exit 0 ;;
+        --)         shift; claude_args=("$@"); break ;;
+        -*)         echo "Unknown option: $1 (pass claude args after '--')" >&2; exit 1 ;;
+        *)          project_dir="$1"; shift
+                    if [[ "''${1:-}" == "--" ]]; then shift; fi
+                    claude_args=("$@"); break ;;
+      esac
+    done
 
+    project_dir="$(realpath "$project_dir")"
     if [[ ! -d "$project_dir" ]]; then
       echo "Error: $project_dir is not a directory" >&2
       exit 1
     fi
+
+    sandbox_notice=${lib.escapeShellArg (spec.sandboxNotice "container")}
 
     # Clean up stale container roots from previous runs killed with SIGKILL
     for stale in /tmp/claude-nspawn.*/; do
@@ -307,8 +316,9 @@ writeShellApplication {
     if [[ "$shell_mode" == true ]]; then
       entrypoint_args=(--setenv=ENTRYPOINT=bash)
     else
-      entrypoint_args=(--setenv=ENTRYPOINT="$(printf '%q ' claude "$@")")
+      entrypoint_args=(--setenv=ENTRYPOINT="$(printf '%q ' claude --append-system-prompt "$sandbox_notice" "''${claude_args[@]}")")
     fi
+    entrypoint_args+=(--setenv=CLAUDE_SANDBOX=1 --setenv=CLAUDE_SANDBOX_BACKEND=container)
     # Use pipe console when stdin is not a terminal (e.g. piped commands, --version)
     if [[ ! -t 0 ]]; then
       console_args+=(--console=pipe)

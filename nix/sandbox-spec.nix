@@ -32,6 +32,20 @@
     "fcoeoabgfenejglbffodgkkbkcdhcgfn"  # Claude in Chrome
   ];
 
+  # Notice appended to every sandboxed claude session's system prompt
+  # (via `claude --append-system-prompt`) so the agent knows it is sandboxed
+  # and must not treat sandbox-local observations as facts about the host.
+  # `backend` is the backend name (bubblewrap / container / vm).
+  sandboxNotice = backend:
+    "You are running inside an isolated ${backend} sandbox created by " +
+    "claude-code-nix-sandbox. The host machine's filesystem, PATH, " +
+    "environment, and installed tools are NOT visible from inside this " +
+    "sandbox: any command you run here (command -v, ls, env, package or " +
+    "tool checks) reflects only the sandbox, never the host. Do not infer " +
+    "host state from commands run here; if you need a fact about the host, " +
+    "ask the user. Only the current project directory and explicitly " +
+    "forwarded dotfiles are shared with the host.";
+
   # Host /etc paths forwarded into the sandbox (read-only).
   # Bubblewrap: --ro-bind-try per path
   # Container: for-loop --bind-ro per path

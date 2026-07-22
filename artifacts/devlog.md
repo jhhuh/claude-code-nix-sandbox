@@ -274,3 +274,33 @@ confirmation is the user's, since I can't observe their clipboard.)
 
 New skill: claude-code-copy-clipboard-needs-xclip-in-sandbox.md — includes
 the "can't probe host tools from inside the sandbox" lesson.
+
+## 2026-07-22 — Sandbox self-awareness notice + optional project-dir / -- CLI
+
+Two related CLI/UX changes across all three backends.
+
+**Sandbox notice (agent self-awareness).** After an agent (me) twice reasoned
+about the host from inside a sandbox — running `command -v xclip` etc. and
+treating the result as host truth — added a notice injected into every
+sandboxed claude session's system prompt via `claude --append-system-prompt`.
+The string lives once in `sandbox-spec.nix` as `sandboxNotice = backend: "...";`
+and each backend passes it (interpolated with its backend name). It tells the
+agent the host filesystem/PATH/tools are not visible and not to infer host
+state from in-sandbox commands. Also set machine-detectable env vars
+`CLAUDE_SANDBOX=1` and `CLAUDE_SANDBOX_BACKEND=<name>` (bwrap --setenv,
+nspawn --setenv, VM environment.variables) for hooks/scripts/PS1.
+
+**Optional project-dir + `--` separator.** project-dir was a required
+positional though it's almost always `.`. Reworked the parser in all three
+backends: project-dir now defaults to `.`, and everything after `--` is passed
+verbatim to claude (usual convention). Backward compatible — the manager
+invokes `claude-sandbox {project_dir}` positionally and nobody passed trailing
+claude args, so existing callers are unaffected. Unknown leading `-*` options
+now error with a hint to use `--`.
+
+Verified (bubblewrap, real runs): `--help` exits 0 with new usage; `--bogus`
+rejected; bare invocation defaults to cwd; `CLAUDE_SANDBOX*` env present;
+`claude-sandbox <dir> -- --version` runs `claude --version` inside (prints
+2.1.217) — confirming `--append-system-prompt` + claude_args passthrough.
+container builds (shellcheck clean); vm parses and still fails only on the
+pre-existing unrelated virtualisation.vlans regression.

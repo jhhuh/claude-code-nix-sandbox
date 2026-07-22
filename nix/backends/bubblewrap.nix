@@ -1,6 +1,7 @@
 # Bubblewrap sandbox backend for Claude Code + Chromium
 #
-# Usage: claude-sandbox [--shell] [--tmux] [--gh-token] <project-dir> [claude args...]
+# Usage: claude-sandbox [--shell] [--tmux] [--gh-token] [project-dir] [-- claude args...]
+#        project-dir defaults to the current directory; args after -- go to claude
 #
 # Produces a writeShellApplication that wraps bwrap to isolate
 # claude-code and chromium with access to a single project directory.
@@ -37,31 +38,41 @@ writeShellApplication {
     shell_mode=false
     tmux_mode=false
     gh_token=false
-    while [[ "''${1:-}" == --* ]]; do
-      case "''${1:-}" in
-        --shell) shell_mode=true; shift ;;
-        --tmux) tmux_mode=true; shift ;;
-        --gh-token) gh_token=true; shift ;;
-        --help|-h) break ;;
-        *) echo "Unknown option: $1" >&2; exit 1 ;;
-      esac
-    done
+    project_dir="."
+    claude_args=()
 
-    if [[ $# -lt 1 ]] || [[ "''${1:-}" == "--help" ]] || [[ "''${1:-}" == "-h" ]]; then
-      echo "Usage: claude-sandbox [--shell] [--tmux] [--gh-token] <project-dir> [claude args...]" >&2
+    usage() {
+      echo "Usage: claude-sandbox [OPTIONS] [project-dir] [-- claude args...]" >&2
+      echo "" >&2
+      echo "  project-dir defaults to the current directory ('.')." >&2
+      echo "  Anything after '--' is passed straight to claude." >&2
+      echo "" >&2
       echo "  --shell     Drop into bash instead of launching claude" >&2
       echo "  --tmux      Run claude inside a tmux session (needed for agent teams)" >&2
       echo "  --gh-token  Forward GH_TOKEN/GITHUB_TOKEN env vars into sandbox" >&2
-      exit 1
-    fi
+    }
 
-    project_dir="$(realpath "$1")"
-    shift
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --shell)    shell_mode=true; shift ;;
+        --tmux)     tmux_mode=true; shift ;;
+        --gh-token) gh_token=true; shift ;;
+        --help|-h)  usage; exit 0 ;;
+        --)         shift; claude_args=("$@"); break ;;
+        -*)         echo "Unknown option: $1 (pass claude args after '--')" >&2; exit 1 ;;
+        *)          project_dir="$1"; shift
+                    if [[ "''${1:-}" == "--" ]]; then shift; fi
+                    claude_args=("$@"); break ;;
+      esac
+    done
 
+    project_dir="$(realpath "$project_dir")"
     if [[ ! -d "$project_dir" ]]; then
       echo "Error: $project_dir is not a directory" >&2
       exit 1
     fi
+
+    sandbox_notice=${lib.escapeShellArg (spec.sandboxNotice "bubblewrap")}
 
     # X11 display forwarding
     x11_args=()
@@ -260,9 +271,9 @@ TMUXCONF
     if [[ "$shell_mode" == true ]]; then
       entrypoint=(bash)
     elif [[ "$tmux_mode" == true ]]; then
-      entrypoint=(tmux -S "$tmux_dir/socket" -f "$tmux_dir/tmux.conf" new-session -s "$tmux_session" -- claude "$@")
+      entrypoint=(tmux -S "$tmux_dir/socket" -f "$tmux_dir/tmux.conf" new-session -s "$tmux_session" -- claude --append-system-prompt "$sandbox_notice" "''${claude_args[@]}")
     else
-      entrypoint=(claude "$@")
+      entrypoint=(claude --append-system-prompt "$sandbox_notice" "''${claude_args[@]}")
     fi
 
     exec bwrap \
@@ -307,6 +318,8 @@ TMUXCONF
       "''${keyring_args[@]}" \
       "''${env_args[@]}" \
       --setenv HOME "$sandbox_home" \
+      --setenv CLAUDE_SANDBOX 1 \
+      --setenv CLAUDE_SANDBOX_BACKEND bubblewrap \
       --setenv CHROMIUM_USER_DATA_DIR "$chromium_profile" \
       --setenv PATH "${sandboxPath}/bin" \
       --setenv TERM "''${TERM:-xterm-256color}" \

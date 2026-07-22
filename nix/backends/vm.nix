@@ -1,6 +1,7 @@
 # QEMU VM backend for Claude Code + Chromium
 #
-# Usage: claude-sandbox-vm [--shell] [--gh-token] <project-dir> [claude args...]
+# Usage: claude-sandbox-vm [--shell] [--gh-token] [project-dir] [-- claude args...]
+#        project-dir defaults to the current directory; args after -- go to claude
 #
 # Launches a NixOS VM via QEMU with claude-code and chromium.
 # Provides the strongest isolation: separate kernel, full hardware
@@ -181,6 +182,12 @@ let
 
         environment.systemPackages = spec.packages ++ [ pkgs.chromium ];
 
+        # Signal to sandboxed tooling that this is a sandbox (see sandbox-spec.nix)
+        environment.variables = {
+          CLAUDE_SANDBOX = "1";
+          CLAUDE_SANDBOX_BACKEND = "vm";
+        };
+
         networking = {
           hostName = "claude-sandbox";
           useDHCP = network;
@@ -209,29 +216,39 @@ writeShellApplication {
   text = ''
     shell_mode=false
     gh_token=false
-    while [[ "''${1:-}" == --* ]]; do
-      case "''${1:-}" in
-        --shell) shell_mode=true; shift ;;
+    project_dir="."
+    claude_args=()
+
+    usage() {
+      echo "Usage: claude-sandbox-vm [OPTIONS] [project-dir] [-- claude args...]" >&2
+      echo "" >&2
+      echo "  project-dir defaults to the current directory ('.')." >&2
+      echo "  Anything after '--' is passed straight to claude." >&2
+      echo "" >&2
+      echo "  --shell     Drop into bash instead of launching claude" >&2
+      echo "  --gh-token  Forward GH_TOKEN/GITHUB_TOKEN env vars into VM" >&2
+    }
+
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --shell)    shell_mode=true; shift ;;
         --gh-token) gh_token=true; shift ;;
-        --help|-h) break ;;
-        *) echo "Unknown option: $1" >&2; exit 1 ;;
+        --help|-h)  usage; exit 0 ;;
+        --)         shift; claude_args=("$@"); break ;;
+        -*)         echo "Unknown option: $1 (pass claude args after '--')" >&2; exit 1 ;;
+        *)          project_dir="$1"; shift
+                    if [[ "''${1:-}" == "--" ]]; then shift; fi
+                    claude_args=("$@"); break ;;
       esac
     done
 
-    if [[ $# -lt 1 ]] || [[ "''${1:-}" == "--help" ]] || [[ "''${1:-}" == "-h" ]]; then
-      echo "Usage: claude-sandbox-vm [--shell] [--gh-token] <project-dir> [claude args...]" >&2
-      echo "  --shell     Drop into bash instead of launching claude" >&2
-      echo "  --gh-token  Forward GH_TOKEN/GITHUB_TOKEN env vars into VM" >&2
-      exit 1
-    fi
-
-    project_dir="$(realpath "$1")"
-    shift
-
+    project_dir="$(realpath "$project_dir")"
     if [[ ! -d "$project_dir" ]]; then
       echo "Error: $project_dir is not a directory" >&2
       exit 1
     fi
+
+    sandbox_notice=${lib.escapeShellArg (spec.sandboxNotice "vm")}
 
     # Clean up stale VM temp files from previous runs killed with SIGKILL
     for stale in /tmp/claude-vm-meta.*/; do
@@ -256,7 +273,7 @@ writeShellApplication {
     if [[ "$shell_mode" == true ]]; then
       echo "bash" > "$meta_dir/entrypoint"
     else
-      printf '%q ' claude "$@" > "$meta_dir/entrypoint"
+      printf '%q ' claude --append-system-prompt "$sandbox_notice" "''${claude_args[@]}" > "$meta_dir/entrypoint"
     fi
 
     if [[ -n "''${ANTHROPIC_API_KEY:-}" ]]; then

@@ -61,8 +61,10 @@ nix build .#sandbox                       # Build bubblewrap sandbox only
 nix build .#container                     # Build nspawn container
 nix build .#vm                            # Build QEMU VM
 nix flake check                           # Evaluate + build all packages
-./result/bin/claude-sandbox <dir>         # Run sandboxed Claude Code
-./result/bin/claude-sandbox --shell <dir> # Shell inside sandbox
+./result/bin/claude-sandbox                # Run sandboxed Claude Code (project-dir defaults to '.')
+./result/bin/claude-sandbox <dir>          # Run against an explicit project dir
+./result/bin/claude-sandbox <dir> -- --model opus  # Args after -- go straight to claude
+./result/bin/claude-sandbox --shell <dir>  # Shell inside sandbox
 sudo ./result/bin/claude-sandbox-container <dir>         # Container mode
 sudo ./result/bin/claude-sandbox-container --shell <dir> # Container shell
 ./result/bin/claude-sandbox-vm <dir>      # VM mode
