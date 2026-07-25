@@ -455,8 +455,14 @@ session state, which does not apply to ~/.local. The chromium profile is
 deliberately not persisted for the VM: it runs stock chromium, which ignores
 CHROMIUM_USER_DATA_DIR, and a SQLite profile over 9p invites locking trouble.
 
-Runtime verification is still missing: booting needs /dev/kvm, which is not
-exposed to this sandbox. Everything here is verified at the built-config level
-(guest fstab, guest bashrc, launcher 9p args) but nothing has actually booted.
+Runtime verification: CONFIRMED by the user on the host (booting needs
+/dev/kvm, which is not exposed to this sandbox, so it could not be done from
+inside). In a booted VM, /mnt/state/local lists bin/lib/share, ~/.local/bin
+resolves through the symlink, PATH ends in the HOST home's .local/bin, and the
+shell prompt shows the project at its host path — so the 9p shares mount, the
+meta-dir path reconstruction runs, and the project bind-mount lands correctly.
+That also confirms the two fixes above at runtime, not just in the generated
+config: the VM now boots and mounts, which it demonstrably could not do
+before.
 Also note the remote builder fails the initrd derivation with
 "/setup: No such file or directory"; `--builders ''` works.
