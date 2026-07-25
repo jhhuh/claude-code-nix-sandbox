@@ -65,7 +65,10 @@ writeShellApplication {
       bind_project="$(realpath "$1")"
       bind_source="$(realpath "$2")"
       bind_dest="''${3:-$bind_source}"
-      machine_file="$bind_project/.config/claude-sandbox-machine"
+      project_dir="$bind_project"
+      state_home="$(getent passwd "''${SUDO_USER:-$USER}" | cut -d: -f6)"
+      ${spec.stateDirSnippet}
+      machine_file="$state_dir/machine"
       if [[ ! -f "$machine_file" ]]; then
         echo "Error: no running container found for $bind_project" >&2
         exit 1
@@ -133,9 +136,7 @@ writeShellApplication {
     # Create ephemeral container root (suffix used for unique machine name)
     container_root="$(mktemp -d /tmp/claude-nspawn.XXXXXX)"
     machine_name="claude-sandbox-''${container_root##*.}"
-    mkdir -p "$project_dir/.config"
-    echo "$machine_name" > "$project_dir/.config/claude-sandbox-machine"
-    trap 'rm -rf "$container_root"; rm -f "$project_dir/.config/claude-sandbox-machine"' EXIT
+    trap 'rm -rf "$container_root"' EXIT
 
     mkdir -p "$container_root"/{bin,etc,var/lib,run,tmp,usr/bin}
 
@@ -153,6 +154,19 @@ writeShellApplication {
     real_uid="$(id -u "''${SUDO_USER:-''${USER}}")"
     real_gid="$(id -g "''${SUDO_USER:-''${USER}}")"
     real_home="$(getent passwd "''${SUDO_USER:-''${USER}}" | cut -d: -f6)"
+
+    # Per-project state dir. Resolved here rather than next to the project-dir
+    # check because it must live under the REAL user's home: we run under sudo,
+    # so $HOME is root's. Everything the snippet creates is chowned back.
+    state_home="$real_home"
+    ${spec.stateDirSnippet}
+    chown "$real_uid:$real_gid" \
+      "$real_home/.local" "$real_home/.local/state" \
+      "$state_root" "$state_root/CACHEDIR.TAG" "$state_root/projects" \
+      "$state_dir" "$state_dir/path" 2>/dev/null || true
+    echo "$machine_name" > "$state_dir/machine"
+    chown "$real_uid:$real_gid" "$state_dir/machine"
+    trap 'rm -rf "$container_root"; rm -f "$state_dir/machine"' EXIT
     real_user="''${SUDO_USER:-''${USER}}"
 
     # Create sandbox user with the real user's UID/GID so file ownership matches
@@ -270,7 +284,7 @@ writeShellApplication {
 
     # Per-project Chromium profile with unique user-data-dir path.
     # See bubblewrap.nix comment for why the real project path is needed.
-    chromium_profile="$project_dir/.config/chromium"
+    chromium_profile="$state_dir/chromium"
     mkdir -p "$chromium_profile"
     chown "$real_uid:$real_gid" "$chromium_profile"
 
@@ -363,6 +377,7 @@ writeShellApplication {
       -D "$container_root" \
       "''${nix_args[@]}" \
       --bind="$project_dir":"$project_dir" \
+      --bind="$state_dir":"$state_dir" \
       "''${host_cfg_args[@]}" \
       "''${display_args[@]}" \
       "''${xauth_args[@]}" \

@@ -70,6 +70,7 @@
     htop
     tree
     vim
+    util-linux  # nsenter joins a running sandbox's namespaces; also lsns, findmnt
   ];
 
   # Chrome extensions force-installed via managed policy.
@@ -104,6 +105,53 @@
     "/run and any directory you create elsewhere, is an ephemeral tmpfs that " +
     "is DISCARDED without warning when the sandbox exits. Never create a new " +
     "project, repository or output file outside ${projectDirRef}.";
+
+  # Per-project persistent state, kept OUTSIDE the project directory so it is
+  # never committed by accident (a chromium profile in a repo would leak
+  # cookies and browsing state; .tmux/tmux.conf has been committed before).
+  #
+  # Directory name is <basename>-<sha256(path + "\n")[:12]>: the basename is a
+  # human hint, the hash restores injectivity, which a plain slash->hyphen
+  # mangle lacks (/a/b-c and /a-b/c both collapse to -a-b-c). The full path is
+  # stored in a `path` file, which doubles as a collision detector — the same
+  # trick direnv uses for its allow files (rc.go:386).
+  #
+  # Emitted as a shell snippet rather than a path because the project dir is
+  # only known at launch. Requires a resolved $project_dir; sets $state_root
+  # and $state_dir. Backends bind $state_dir at its real host path.
+  #
+  # Set $state_home first to override the home directory. The container backend
+  # must: it runs under sudo, where $HOME is root's and the state would land in
+  # /root instead of the user's home. That backend is also responsible for
+  # chown-ing what this creates back to the real uid/gid.
+  stateDirSnippet = ''
+    sd_home="''${state_home:-$HOME}"
+    state_root="''${XDG_STATE_HOME:-$sd_home/.local/state}/claude-code-nix-sandbox"
+    mkdir -p "$state_root/projects"
+    if [[ ! -f "$state_root/CACHEDIR.TAG" ]]; then
+      printf '%s\n' \
+        'Signature: 8a477f597d28d172789f06886806bc55' \
+        '# Created by claude-code-nix-sandbox. Per-project sandbox state.' \
+        '# Safe to delete when no sandbox is running.' \
+        > "$state_root/CACHEDIR.TAG"
+    fi
+    sd_base="$(basename "$project_dir")"
+    sd_base="''${sd_base//[^A-Za-z0-9._-]/-}"
+    sd_hash="$(printf '%s\n' "$project_dir" | sha256sum | cut -c1-12)"
+    state_dir="$state_root/projects/$sd_base-$sd_hash"
+    mkdir -p "$state_dir"
+    if [[ -f "$state_dir/path" ]]; then
+      sd_recorded="$(cat "$state_dir/path")"
+      if [[ "$sd_recorded" != "$project_dir" ]]; then
+        echo "Error: state directory hash collision at $state_dir" >&2
+        echo "  recorded: $sd_recorded" >&2
+        echo "  current:  $project_dir" >&2
+        exit 1
+      fi
+    else
+      printf '%s\n' "$project_dir" > "$state_dir/path"
+    fi
+  '';
 
   # Host /etc paths forwarded into the sandbox (read-only).
   # Bubblewrap: --ro-bind-try per path

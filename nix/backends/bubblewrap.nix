@@ -72,6 +72,8 @@ writeShellApplication {
       exit 1
     fi
 
+    ${spec.stateDirSnippet}
+
     sandbox_notice=${lib.escapeShellArg (spec.sandboxNotice "bubblewrap")}"${spec.persistenceNotice "$project_dir"}"
 
     # X11 display forwarding
@@ -185,22 +187,26 @@ writeShellApplication {
       claude_auth_args+=(--perms 0600 --file 11 "$sandbox_home/.claude.json")
     fi
 
-    # Per-project Chromium profile with unique user-data-dir path.
-    # Chromium derives abstract socket names from the profile path. Since all
-    # sandboxes share the host network namespace, mounting different storage to
-    # the same in-sandbox path (~/.config/chromium) still collides. Using the
-    # project's real path as --user-data-dir gives each sandbox a unique socket.
-    chromium_profile="$project_dir/.config/chromium"
+    # Per-project Chromium profile, keyed on a path unique to this project so
+    # concurrent sandboxes get distinct instances. Lives in the state dir, not
+    # the project dir — a browser profile inside a repo is untracked junk at
+    # best and committed cookies at worst.
+    chromium_profile="$state_dir/chromium"
     mkdir -p "$chromium_profile"
 
-    # Per-project tmux directory (same pattern as Chromium profile).
-    # Socket and config live here so each project gets its own tmux server.
-    tmux_dir="$project_dir/.tmux"
-    mkdir -p "$tmux_dir"
+    # tmux config and socket. The socket sits on a host-visible bind mount by
+    # design: a Unix socket is a filesystem object and the connecting client
+    # needs no namespace membership, so you can attach to the live claude UI
+    # from another terminal with the sandbox's own tmux binary:
+    #   ${sandboxPath}/bin/tmux -S <state_dir>/tmux.sock attach
+    # Use that binary, not the host's, or the client/server protocol versions
+    # may disagree. /nix/store is shared, so it is the same file.
+    tmux_conf="$state_dir/tmux.conf"
+    tmux_sock="$state_dir/tmux.sock"
     project_name="$(basename "$project_dir")"
     tmux_session="sandbox:$project_name"
-    if [[ ! -f "$tmux_dir/tmux.conf" ]]; then
-      cat > "$tmux_dir/tmux.conf" << 'TMUXCONF'
+    if [[ ! -f "$tmux_conf" ]]; then
+      cat > "$tmux_conf" << 'TMUXCONF'
 # Sandbox tmux config — edit freely, persists across sandbox restarts
 set -g mouse on
 set -g default-terminal "tmux-256color"
@@ -271,7 +277,7 @@ TMUXCONF
     if [[ "$shell_mode" == true ]]; then
       entrypoint=(bash)
     elif [[ "$tmux_mode" == true ]]; then
-      entrypoint=(tmux -S "$tmux_dir/socket" -f "$tmux_dir/tmux.conf" new-session -s "$tmux_session" -- claude --append-system-prompt "$sandbox_notice" "''${claude_args[@]}")
+      entrypoint=(tmux -S "$tmux_sock" -f "$tmux_conf" new-session -s "$tmux_session" -- claude --append-system-prompt "$sandbox_notice" "''${claude_args[@]}")
     else
       entrypoint=(claude --append-system-prompt "$sandbox_notice" "''${claude_args[@]}")
     fi
@@ -298,6 +304,7 @@ TMUXCONF
       "''${git_args[@]}" \
       "''${gh_args[@]}" \
       --bind "$project_dir" "$project_dir" \
+      --bind "$state_dir" "$state_dir" \
       ${lib.concatMapStringsSep " \\\n  " (p: "--ro-bind-try ${p} ${p}") (spec.hostEtcPaths ++ spec.hostEtcPathsBwrapOnly)} \
       --dir /etc/chromium \
       --dir /etc/chromium/policies \
