@@ -304,3 +304,53 @@ rejected; bare invocation defaults to cwd; `CLAUDE_SANDBOX*` env present;
 2.1.217) — confirming `--append-system-prompt` + claude_args passthrough.
 container builds (shellcheck clean); vm parses and still fails only on the
 pre-existing unrelated virtualisation.vlans regression.
+
+## 2026-07-25 — per-project state dir + `--enter`
+
+Driven by the Claude Code usage report, whose largest friction bucket is
+"Sandbox and PATH environment mismatches". Measured it inside a live sandbox:
+`sed awk xargs jq curl diff patch make tar gzip less which file` were all
+absent, and `grep`/`find` only *appeared* to work because claude-code injects
+them as bash functions wrapping its own binary — so scripts and subprocesses
+broke while interactive use looked fine. Shipped the real userland plus pip
+(`python3` was already there; `ensurepip` was the actual hole).
+
+Then moved sandbox state out of the project dir. Three things were writing
+there: `.tmux/`, `.config/chromium/` (a whole browser profile, cookies and
+all) and the container machine name. Now under
+`${XDG_STATE_HOME}/claude-code-nix-sandbox/projects/<basename>-<hash>/`.
+
+Naming went through two dead ends worth recording:
+
+1. Argued for a hash on the grounds that directory names feed a length-limited
+   syscall, budgeting against `sun_path` (108). **Wrong premise.** chromium
+   binds its singleton socket in a unique temp dir and only symlinks it into
+   the profile (`process_singleton_posix.cc:1042,1056,1060,1068`), explicitly
+   to avoid long paths. The premise came from our own skill file, which has
+   now been corrected. The hash stayed anyway — the plain slash-to-hyphen
+   mangle is not injective — but for the right reason.
+2. Kept the readable basename as a prefix per user request; direnv's trick of
+   storing the plaintext path *inside* (`rc.go:386`) gives discoverability and
+   doubles as a collision detector.
+
+`--enter` joins a running sandbox's namespaces unprivileged. Works because we
+own the user namespace bwrap created. Four gotchas, all found by testing:
+open every ns fd before the first setns (post-join lookups fail ENOENT, not
+EPERM); `setns` does not move the root dir; bwrap's `child-pid` is an
+intermediate whose root is the `newroot`/`oldroot` staging tree, solved by
+having the sandbox self-register from inside; and `--preserve-credentials` is
+mandatory since bwrap denies setgroups. Also had to replay the payload's
+environment from `/proc/<pid>/environ` — nsenter inherits the *caller's*.
+
+Singleton-by-default was the actual request and is implemented, but is NOT
+enabled: claude fails in a joined namespace with a bun ENOENT while git,
+python, node and bun all work there. Environment, credentials, cwd, ns inode
+and `/proc/self/exe` are all verified identical between founded and joined, so
+the cause is still unknown. Shipping a default that breaks ordinary launches
+was not acceptable, so joining is opt-in until that is understood; the switch
+is one condition.
+
+Data point that settled the singleton-safety question: across the user's own
+history, same-project session overlap is ~nil (2 pairs, both <=2 min, both in
+the `-home-jhhuh` pseudo-project). The 34% multi-clauding figure in the report
+counts overlap across *different* projects.

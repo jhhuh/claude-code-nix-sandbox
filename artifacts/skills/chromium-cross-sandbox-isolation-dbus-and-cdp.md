@@ -19,9 +19,34 @@ exec env -u DBUS_SESSION_BUS_ADDRESS chromium --user-data-dir=$CHROMIUM_USER_DAT
 
 This replaced the previous approach of dropping the session bus entirely, which broke `gh auth status` (gh stores OAuth tokens in gnome-keyring via D-Bus Secret Service API).
 
-### 2. Abstract socket collision on shared network namespace
+### 2. Profile sharing on a shared network namespace
 
-Chromium uses abstract Unix sockets (which live in the network namespace, not the filesystem) for IPC. The socket name is derived from the **profile path string**. If two sandboxes both mount different storage to the same in-sandbox path (`~/.config/chromium`), the path strings are identical → same abstract socket → collision.
+> **CORRECTED 2026-07-25.** This section previously claimed chromium uses
+> *abstract* Unix sockets whose name derives from the profile path string, and
+> that claim drove a whole design round (budgeting directory names against the
+> 108-byte `sun_path` limit). It is wrong. From
+> `chrome/browser/process_singleton_posix.cc`:
+>
+> ```
+> 1042:  if (!socket_dir_.CreateUniqueTempDir(...))
+> 1056:  socket_target_path = socket_dir_.GetPath().Append(kSingletonSocketFilename);
+> 1060:  SetupSocket(socket_target_path.value(), &sock_, &addr, &socklen);
+> 1068:  if (!SymlinkPath(socket_target_path, socket_path_) || ...
+>  765:  socket_path_ = user_data_dir.Append(chrome::kSingletonSocketFilename);
+> ```
+>
+> The socket is bound in a **unique temp dir**; `<profile>/SingletonSocket` is
+> only a **symlink** to it. The comment at `:1054` says this exists precisely
+> to avoid long-path failures. **Profile path length is therefore irrelevant**,
+> and no name truncation is needed anywhere.
+>
+> What remains true: give each project its own profile directory. Not because
+> of socket naming, but because a profile is per-project state (cookies,
+> history, logins) and two projects sharing one would be wrong on its own
+> terms. Root cause 1 (D-Bus) is well-supported and was likely doing the real
+> isolation work all along.
+
+Each project gets its own `--user-data-dir`, so two sandboxes never operate on the same profile directory.
 
 **Fix**: The `chromiumSandbox` package (nix/chromium.nix) reads `CHROMIUM_USER_DATA_DIR` env var and passes `--user-data-dir` to the real binary. Each backend sets this env var to `$project_dir/.config/chromium`, giving each project a globally unique abstract socket name.
 
@@ -45,7 +70,15 @@ Isolating the network namespace would fix socket conflicts but breaks internet a
 
 ## Why not bind-mount to a common in-sandbox path?
 
-Mounting `<project-dir>/.config/chromium` to `~/.config/chromium` inside each sandbox means the in-sandbox path string is identical across sandboxes. Since abstract sockets are keyed on path strings and live in the shared network namespace, they still collide. The `--user-data-dir` flag with the **real host path** is the key — each project gets a globally unique socket name.
+Each project keeps a distinct profile path, bound at its real host path. Note
+the original justification here — that a shared in-sandbox path would collide
+on abstract sockets — was **wrong**, see the correction in root cause 2. The
+practical reason stands: distinct directories keep per-project browser state
+(cookies, logins, history) from bleeding between projects.
+
+Profiles now live in the per-project state dir
+(`${XDG_STATE_HOME:-~/.local/state}/claude-code-nix-sandbox/projects/<name>-<hash>/chromium`),
+not in the project directory, so a browser profile is never committed to a repo.
 
 ## Why not xdg-dbus-proxy?
 

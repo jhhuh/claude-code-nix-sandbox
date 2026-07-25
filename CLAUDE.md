@@ -65,6 +65,8 @@ nix flake check                           # Evaluate + build all packages
 ./result/bin/claude-sandbox <dir>          # Run against an explicit project dir
 ./result/bin/claude-sandbox <dir> -- --model opus  # Args after -- go straight to claude
 ./result/bin/claude-sandbox --shell <dir>  # Shell inside sandbox
+./result/bin/claude-sandbox --enter <dir>  # Shell inside the RUNNING sandbox (inspect live)
+./result/bin/claude-sandbox --stop <dir>   # Terminate the project's sandbox
 sudo ./result/bin/claude-sandbox-container <dir>         # Container mode
 sudo ./result/bin/claude-sandbox-container --shell <dir> # Container shell
 ./result/bin/claude-sandbox-vm <dir>      # VM mode
@@ -116,3 +118,4 @@ Non-obvious patterns discovered during development — read before modifying rel
 - `artifacts/skills/claude-json-login-state-copy-seeding-vs-bind-mount.md — ~/.claude.json holds login/onboarding state; seed by copy, never bind (atomic-rename races)`
 - `artifacts/skills/claude-code-copy-clipboard-needs-xclip-in-sandbox.md — /copy shells out to xclip/xsel (not OSC 52); sandbox must ship a clipboard binary; can't probe host tools from inside the sandbox`
 - `artifacts/skills/nix-dual-purpose-derivation-build-and-run.md — writeShellScript + symlink for nix build (static) + nix run (serve) from one derivation`
+- `artifacts/skills/unprivileged-namespace-join-into-running-bwrap-sandbox.md — how --enter works: fd ordering, root fixup, payload-pid self-registration, --preserve-credentials, env replay`
