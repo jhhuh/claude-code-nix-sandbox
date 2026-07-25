@@ -107,6 +107,15 @@ let
           noCheck = true;
         };
 
+        # Per-project state dir via 9p — writable, unlike the config shares.
+        # Carries ~/.local so pipx/npm/venv installs survive VM restarts.
+        virtualisation.fileSystems."/mnt/state" = {
+          device = "state_dir";
+          fsType = "9p";
+          options = [ "trans=virtio" "version=9p2000.L" "nofail" ];
+          noCheck = true;
+        };
+
         # Minimal Xorg + WM for Chromium display (shown in QEMU window)
         services.xserver = {
           enable = true;
@@ -143,6 +152,16 @@ let
               if [[ -f /mnt/meta/claude.json ]]; then
                 cp /mnt/meta/claude.json "$host_home/.claude.json"
                 chmod 600 "$host_home/.claude.json"
+              fi
+              # Persistent ~/.local from the per-project state dir. Symlinks are
+              # fine here, unlike the project dir below: getcwd() resolves
+              # symlinks, which matters only where a path is encoded into state.
+              if [[ -d /mnt/state/local ]]; then
+                mkdir -p "$host_home/.local"
+                for sub in bin lib share; do
+                  ln -sfn "/mnt/state/local/$sub" "$host_home/.local/$sub"
+                done
+                export PATH="$PATH:$host_home/.local/bin"
               fi
             fi
             if [[ -f /mnt/meta/host_project ]]; then
@@ -265,6 +284,15 @@ writeShellApplication {
       exit 1
     fi
 
+    ${spec.stateDirSnippet}
+
+    # Persistent ~/.local, shared into the guest at /mnt/state and symlinked
+    # into the reconstructed host home. The chromium profile is deliberately
+    # NOT persisted here, unlike the other backends: this VM runs stock
+    # chromium rather than the wrapper, so it ignores CHROMIUM_USER_DATA_DIR,
+    # and a SQLite-backed browser profile over 9p risks locking problems.
+    mkdir -p "$state_dir/local"/{bin,lib,share}
+
     sandbox_notice=${lib.escapeShellArg (spec.sandboxNotice "vm")}"${spec.persistenceNotice "$project_dir"}"
 
     # Clean up stale VM temp files from previous runs killed with SIGKILL
@@ -330,6 +358,7 @@ writeShellApplication {
     qemu_extra=()
     qemu_extra+=(-virtfs "local,path=$project_dir,mount_tag=project_share,security_model=none,id=project_share")
     qemu_extra+=(-virtfs "local,path=$meta_dir,mount_tag=claude_meta,security_model=none,id=claude_meta,readonly=on")
+    qemu_extra+=(-virtfs "local,path=$state_dir,mount_tag=state_dir,security_model=none,id=state_dir")
 
     host_claude_dir="''${HOME}/.claude"
     if [[ -d "$host_claude_dir" ]]; then

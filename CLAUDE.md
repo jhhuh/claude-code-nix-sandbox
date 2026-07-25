@@ -70,6 +70,7 @@ nix flake check                           # Evaluate + build all packages
 ./result/bin/claude-sandbox --stop <dir>   # Terminate the project's sandbox
 sudo ./result/bin/claude-sandbox-container <dir>         # Container mode
 sudo ./result/bin/claude-sandbox-container --shell <dir> # Container shell
+nix build .#vm --builders ''             # VM (remote builder fails on initrd; build locally)
 ./result/bin/claude-sandbox-vm <dir>      # VM mode
 ./result/bin/claude-sandbox-vm --shell <dir>  # VM shell
 

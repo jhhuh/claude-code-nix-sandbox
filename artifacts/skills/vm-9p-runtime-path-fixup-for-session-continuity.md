@@ -1,5 +1,28 @@
 # VM 9p: Runtime Path Fixup for Session Continuity
 
+## Read this first: use `virtualisation.fileSystems`, never `fileSystems`
+
+For a VM built on `qemu-vm.nix`, guest mounts **must** be declared as
+`virtualisation.fileSystems."/path"`. `qemu-vm.nix` replaces the entire
+`fileSystems` attrset via `mkVMOverride`, so plain `fileSystems` entries are
+**silently discarded** — no evaluation error, no warning, they simply never
+reach the guest fstab.
+
+This backend had all seven 9p shares declared the wrong way, so nothing
+mounted in the guest: not the project dir, not `~/.claude`, not `/mnt/meta`
+(which carries the entrypoint). The VM was non-functional rather than
+degraded, and it went unnoticed because `.#vm` could not evaluate at all.
+
+How to check without booting — inspect the built system's fstab:
+
+```bash
+SYS=$(nix-store -qR result-vm | rg 'nixos-system' | head -1)
+rg -N -o '^[a-z_]+ [^ ]+ 9p' "$SYS/etc/fstab"
+```
+
+If your share is not listed there, it will not mount. Only nixpkgs' own
+`nix-store`, `shared` and `xchg` appear when the declarations are wrong.
+
 ## Problem
 
 Claude Code stores sessions under `~/.claude/projects/<encoded-path>/` where `<encoded-path>` is the project directory's absolute path (slashes → hyphens). When a VM uses fixed mount points (`/project`, `/home/sandbox`), Claude creates sessions under a different key and can't find existing host sessions.

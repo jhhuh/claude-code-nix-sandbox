@@ -421,3 +421,42 @@ Also closed two loops the advisor flagged: strace can genuinely ptrace inside
 the sandbox (not a hollow claim in the commit message), and `claude doctor`
 inside the sandbox reports "No installation issues found", which answers the
 original ~/.local/bin question directly rather than by assertion.
+
+## 2026-07-25 (VM) — the VM backend was entirely broken, in two ways
+
+Adding a state dir to the VM turned up two pre-existing bugs that together
+meant the backend could not have worked at all.
+
+**1. `virtualisation.vlans` blocked every build.** I had repeatedly written
+this off as "a pre-existing unrelated nixpkgs regression" and used it to
+justify shipping VM changes verified by parse only. That was wrong, and the
+error message said so all along: it named our own flake as the definition
+site. `vlans` belongs to the NixOS test framework, not qemu-vm.nix, and a
+`mkIf` with a false condition still requires the option to exist. One-line
+fix, and `.#vm` builds. Lesson: read the error, do not pattern-match it to a
+story about someone else's bug.
+
+**2. No 9p share ever reached the guest.** All seven were declared with
+`fileSystems."..."`, but qemu-vm.nix replaces that whole attrset via
+`mkVMOverride`, so they were silently dropped — no error, no warning. The
+generated guest fstab contained only nixpkgs' own nix-store/shared/xchg. That
+means no project dir, no ~/.claude, and no /mnt/meta, which is where the
+launcher writes the entrypoint. Fixed by using `virtualisation.fileSystems`.
+Checkable without booting: grep the built system's /etc/fstab for 9p lines.
+
+This is a good argument for the VM being in `nix flake check`; it rotted
+precisely because nothing exercised it.
+
+The state dir itself follows the other backends: ~/.local/{bin,lib,share} on a
+writable 9p share at /mnt/state, symlinked into the reconstructed host home.
+Symlinks are safe here — the bind-mount requirement documented for the project
+dir exists because getcwd() resolves symlinks and the path is encoded into
+session state, which does not apply to ~/.local. The chromium profile is
+deliberately not persisted for the VM: it runs stock chromium, which ignores
+CHROMIUM_USER_DATA_DIR, and a SQLite profile over 9p invites locking trouble.
+
+Runtime verification is still missing: booting needs /dev/kvm, which is not
+exposed to this sandbox. Everything here is verified at the built-config level
+(guest fstab, guest bashrc, launcher 9p args) but nothing has actually booted.
+Also note the remote builder fails the initrd derivation with
+"/setup: No such file or directory"; `--builders ''` works.
