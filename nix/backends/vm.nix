@@ -48,8 +48,12 @@ let
         # Serial console must be last so Linux makes it /dev/console
         virtualisation.qemu.consoles = [ "tty0" "ttyS0,115200n8" ];
 
+        # Guest mounts MUST be virtualisation.fileSystems, not fileSystems:
+        # qemu-vm.nix replaces the whole fileSystems attrset with mkVMOverride,
+        # so plain entries are silently discarded and never reach the guest
+        # fstab. They were, which meant none of these shares mounted at all.
         # Project directory via 9p (host path passed at runtime via QEMU_OPTS)
-        fileSystems."/project" = {
+        virtualisation.fileSystems."/project" = {
           device = "project_share";
           fsType = "9p";
           options = [ "trans=virtio" "version=9p2000.L" "msize=104857600" ];
@@ -57,7 +61,7 @@ let
         };
 
         # Claude auth via 9p (nofail: dir may not exist on host)
-        fileSystems."/home/sandbox/.claude" = {
+        virtualisation.fileSystems."/home/sandbox/.claude" = {
           device = "claude_auth";
           fsType = "9p";
           options = [ "trans=virtio" "version=9p2000.L" "nofail" ];
@@ -65,14 +69,14 @@ let
         };
 
         # Git config via 9p (nofail: may not exist on host)
-        fileSystems."/home/sandbox/.gitconfig" = {
+        virtualisation.fileSystems."/home/sandbox/.gitconfig" = {
           device = "git_config";
           fsType = "9p";
           options = [ "trans=virtio" "version=9p2000.L" "ro" "nofail" ];
           noCheck = true;
         };
 
-        fileSystems."/home/sandbox/.config/git" = {
+        virtualisation.fileSystems."/home/sandbox/.config/git" = {
           device = "git_config_dir";
           fsType = "9p";
           options = [ "trans=virtio" "version=9p2000.L" "ro" "nofail" ];
@@ -80,7 +84,7 @@ let
         };
 
         # GitHub CLI config via 9p (nofail: dir may not exist on host)
-        fileSystems."/home/sandbox/.config/gh" = {
+        virtualisation.fileSystems."/home/sandbox/.config/gh" = {
           device = "gh_config_dir";
           fsType = "9p";
           options = [ "trans=virtio" "version=9p2000.L" "ro" "nofail" ];
@@ -88,7 +92,7 @@ let
         };
 
         # SSH keys via 9p (nofail: dir may not exist on host)
-        fileSystems."/home/sandbox/.ssh" = {
+        virtualisation.fileSystems."/home/sandbox/.ssh" = {
           device = "ssh_dir";
           fsType = "9p";
           options = [ "trans=virtio" "version=9p2000.L" "ro" "nofail" ];
@@ -96,7 +100,7 @@ let
         };
 
         # Metadata (entrypoint, API key) via 9p
-        fileSystems."/mnt/meta" = {
+        virtualisation.fileSystems."/mnt/meta" = {
           device = "claude_meta";
           fsType = "9p";
           options = [ "trans=virtio" "version=9p2000.L" "ro" ];
