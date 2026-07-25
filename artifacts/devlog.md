@@ -495,3 +495,24 @@ devShell — `nix develop` works inside the sandbox because the nix daemon
 socket is forwarded — and cloud CLIs raise credential-forwarding questions),
 ffmpeg/texlive (heavy, rare). The backends already expose `extraPackages` for
 per-user additions without touching the spec.
+
+## Open: runtime verification deferred
+
+Two features are build-verified only, deferred by agreement. Neither can be
+exercised from inside the bubblewrap sandbox.
+
+- `claude-sandbox-container --enter` / `--stop` — needs sudo and nspawn.
+  Uses nsenter against the machine leader plus setpriv, deliberately NOT
+  `machinectl shell`: that requires the container's own systemd, and this
+  backend runs bash under `--as-pid2` without booting it.
+- `claude-sandbox-vm --enter` — needs KVM (`/dev/kvm` is not bound into the
+  sandbox). Attaches with socat to a second serial console (ttyS1) backed by a
+  Unix socket in the state dir.
+
+Treat the VM one as unproven in particular: that backend had two independent
+fatal bugs this session (virtualisation.vlans blocking every build, and every
+9p share silently dropped by mkVMOverride), so it has little track record.
+
+What IS runtime-verified: bubblewrap `--enter`, the singleton, the state dir,
+nix-ld, the persistent ~/.local, and the VM's 9p mounts and ~/.local (the
+latter confirmed by the user on the host).
