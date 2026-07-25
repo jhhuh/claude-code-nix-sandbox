@@ -354,3 +354,42 @@ Data point that settled the singleton-safety question: across the user's own
 history, same-project session overlap is ~nil (2 pairs, both <=2 min, both in
 the `-home-jhhuh` pseudo-project). The 34% multi-clauding figure in the report
 counts overlap across *different* projects.
+
+## 2026-07-25 (later) — nix-ld and persistent ~/.local
+
+nix-ld was broken in the worst way: NIX_LD and NIX_LD_LIBRARY_PATH leaked in
+from the host pointing at /run/current-system, which is a tmpfs here, and
+/lib64 did not exist at all — so everything advertised nix-ld as available and
+nothing backed it. Both vars are now set to store paths, which also makes the
+sandbox independent of the host's nix-ld setup.
+
+Delivery differs per backend, and the container one is a trap:
+programs.nix-ld.enable installs the /lib64 symlink via systemd-tmpfiles, but
+that backend runs its entrypoint under --as-pid2 without booting systemd, so
+the option would be a silent no-op. Symlinks are created explicitly there. The
+VM boots systemd, so the option is genuinely sufficient.
+
+Verified with a negative control rather than just a positive one: a Nix binary
+repatched to the FHS interpreter fails in a pre-change sandbox and runs after.
+Without the negative half the test proves nothing about the mechanism.
+
+Persistent ~/.local hit a self-inflicted collision worth remembering. Binding
+$state_dir/local over ~/.local shadows the state dir itself, because the state
+dir *is* ~/.local/state/claude-code-nix-sandbox/... — the bind hid the mount
+underneath and the registry write started failing with ENOENT. Fixed by
+binding bin, lib and share individually, which leaves ~/.local/state intact.
+bin alone would not do: pip splits a --user install across bin/ and
+lib/pythonX.Y/site-packages.
+
+Two findings about python that shipping pip does NOT fix:
+- nixpkgs python marks itself externally managed (PEP 668), so plain
+  `pip install --user` needs --break-system-packages.
+- More decisively, it is built with user site-packages DISABLED, so --user
+  fails outright regardless. The working paths are a venv or --prefix.
+  Verified persistence with a venv under ~/.local/lib symlinked into
+  ~/.local/bin, plus a plain script; both survive a fresh sandbox.
+
+Also corrected spec.persistenceNotice, which claimed the entire home directory
+was ephemeral. That was already false as of the state-dir commit and actively
+misleading once ~/.local persisted — the notice exists precisely to stop work
+being written somewhere that vanishes.

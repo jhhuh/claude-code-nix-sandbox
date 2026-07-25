@@ -255,6 +255,18 @@ writeShellApplication {
     chromium_profile="$state_dir/chromium"
     mkdir -p "$chromium_profile"
 
+    # Persistent ~/.local. `claude doctor` wants ~/.local/bin on PATH, and with
+    # pip shipped, `pip install --user` / pipx / npm -g land console scripts
+    # there. bin/ alone is not enough: pip splits a --user install across bin/
+    # and lib/pythonX.Y/site-packages, so persisting only bin/ leaves scripts
+    # whose libraries vanished — a run-time failure rather than an install-time
+    # one. Hence bin, lib and share.
+    #
+    # They are bound individually rather than binding ~/.local wholesale,
+    # because the state dir itself lives at ~/.local/state/... — a bind over
+    # ~/.local would shadow it and break the state dir mount underneath.
+    mkdir -p "$state_dir/local"/{bin,lib,share}
+
     # tmux config and socket. The socket sits on a host-visible bind mount by
     # design: a Unix socket is a filesystem object and the connecting client
     # needs no namespace membership, so you can attach to the live claude UI
@@ -402,6 +414,9 @@ TMUXCONF
       "''${gh_args[@]}" \
       --bind "$project_dir" "$project_dir" \
       --bind "$state_dir" "$state_dir" \
+      --bind "$state_dir/local/bin" "$sandbox_home/.local/bin" \
+      --bind "$state_dir/local/lib" "$sandbox_home/.local/lib" \
+      --bind "$state_dir/local/share" "$sandbox_home/.local/share" \
       ${lib.concatMapStringsSep " \\\n  " (p: "--ro-bind-try ${p} ${p}") (spec.hostEtcPaths ++ spec.hostEtcPathsBwrapOnly)} \
       --dir /etc/chromium \
       --dir /etc/chromium/policies \
@@ -432,7 +447,7 @@ TMUXCONF
       --setenv CLAUDE_SANDBOX_STATE_DIR "$state_dir" \
       --setenv NIX_LD "${spec.realLoader}" \
       --setenv NIX_LD_LIBRARY_PATH "${lib.makeLibraryPath spec.nixLdLibraries}" \
-      --setenv PATH "${sandboxPath}/bin" \
+      --setenv PATH "${sandboxPath}/bin:$sandbox_home/.local/bin" \
       --setenv TERM "''${TERM:-xterm-256color}" \
       --setenv NIX_REMOTE daemon \
       --setenv XDG_RUNTIME_DIR "''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" \

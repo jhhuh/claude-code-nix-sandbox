@@ -126,12 +126,15 @@
   # quotes, unlike sandboxNotice which is escapeShellArg-quoted. Keep the text
   # free of double quotes, backticks and any other dollar sign.
   persistenceNotice = projectDirRef:
-    " The only host-shared, persistent location is ${projectDirRef} and its " +
-    "subdirectories; that is where all work must be created and saved. " +
-    "Everything else in this sandbox, including the home directory, /tmp, " +
-    "/run and any directory you create elsewhere, is an ephemeral tmpfs that " +
-    "is DISCARDED without warning when the sandbox exits. Never create a new " +
-    "project, repository or output file outside ${projectDirRef}.";
+    " Project work must be created and saved under ${projectDirRef}, which is " +
+    "shared with the host and persists across sandbox restarts. A few paths " +
+    "under the home directory are also bind-mounted and persistent — sandbox " +
+    "state such as the browser profile and .local, where tools installed by " +
+    "pip --user or npm land. Those are not part of the project and must never " +
+    "hold project work. Everything else, including the rest of the home " +
+    "directory, /tmp and /run, is an ephemeral tmpfs that is DISCARDED " +
+    "without warning when the sandbox exits. Never create a new project, " +
+    "repository or output file outside ${projectDirRef}.";
 
   # Per-project persistent state, kept OUTSIDE the project directory so it is
   # never committed by accident (a chromium profile in a repo would leak

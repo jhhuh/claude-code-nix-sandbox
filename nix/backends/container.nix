@@ -297,6 +297,13 @@ writeShellApplication {
     mkdir -p "$chromium_profile"
     chown "$real_uid:$real_gid" "$chromium_profile"
 
+    # Persistent ~/.local (pip --user / npm -g console scripts and their libs).
+    # Bound whole rather than just bin/, since a --user install is split across
+    # bin/ and lib/pythonX.Y/site-packages.
+    mkdir -p "$state_dir/local"/{bin,lib,share}
+    chown "$real_uid:$real_gid" "$state_dir/local" \
+      "$state_dir/local/bin" "$state_dir/local/lib" "$state_dir/local/share"
+
     # Git and SSH forwarding (read-only)
     git_args=()
     if [[ -f "$real_home/.gitconfig" ]]; then
@@ -387,6 +394,9 @@ writeShellApplication {
       "''${nix_args[@]}" \
       --bind="$project_dir":"$project_dir" \
       --bind="$state_dir":"$state_dir" \
+      --bind="$state_dir/local/bin":"$real_home/.local/bin" \
+      --bind="$state_dir/local/lib":"$real_home/.local/lib" \
+      --bind="$state_dir/local/share":"$real_home/.local/share" \
       "''${host_cfg_args[@]}" \
       "''${display_args[@]}" \
       "''${xauth_args[@]}" \
@@ -409,7 +419,7 @@ writeShellApplication {
       --setenv=CHROMIUM_USER_DATA_DIR="$chromium_profile" \
       --setenv=NIX_LD="${spec.realLoader}" \
       --setenv=NIX_LD_LIBRARY_PATH="${lib.makeLibraryPath spec.nixLdLibraries}" \
-      --setenv=PATH="${chromiumSandbox}/bin:${toplevel}/sw/bin" \
+      --setenv=PATH="${chromiumSandbox}/bin:${toplevel}/sw/bin:$real_home/.local/bin" \
       --setenv=TERM="''${TERM:-xterm-256color}" \
       --setenv=NIX_REMOTE=daemon \
       --as-pid2 \
