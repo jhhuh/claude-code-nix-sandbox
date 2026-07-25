@@ -18,13 +18,58 @@
     openssh
     nodejs
     bun  # some claude-code plugin hooks use #!/usr/bin/env bun
-    python3  # claude-code's security-guidance SessionStart hook needs a Python 3 interpreter
+    # claude-code's security-guidance SessionStart hook needs a Python 3
+    # interpreter. pip is bundled because the bare nixpkgs python3 has no
+    # pip/ensurepip, so `python3 -m pip` and `python3 -m venv` both failed.
+    (python3.withPackages (ps: [ ps.pip ]))
     tmux
     coreutils
     bash
     nix
     xclip  # claude-code's /copy shells out to a clipboard binary; reaches the
            # host X CLIPBOARD via the forwarded DISPLAY/X socket/Xauthority
+
+    # Standard userland. coreutils provides NONE of grep/sed/awk/find, and
+    # claude-code masks that in its own shell by injecting `grep` and `find` as
+    # bash *functions* (ugrep/bfs wrappers around its binary). Those functions
+    # do not exist in subprocesses, so scripts, Makefiles and `sh -c` broke on
+    # missing tools while interactive use looked fine. Ship the real binaries.
+    gnugrep
+    gnused
+    gawk
+    findutils
+    diffutils
+    patch
+    ripgrep
+    fd
+    jq
+    less
+    file
+    which
+    bc
+
+    # Archives / compression
+    gnutar
+    gzip
+    bzip2
+    xz
+    zstd
+    zip
+    unzip
+
+    # Network
+    curl
+    wget
+    rsync
+
+    # Build / process inspection / editing (--shell mode is a real shell)
+    gnumake
+    procps
+    psmisc
+    lsof
+    htop
+    tree
+    vim
   ];
 
   # Chrome extensions force-installed via managed policy.
@@ -45,6 +90,20 @@
     "host state from commands run here; if you need a fact about the host, " +
     "ask the user. Only the current project directory and explicitly " +
     "forwarded dotfiles are shared with the host.";
+
+  # Second half of the notice, appended by each backend once the project
+  # directory is resolved. `projectDirRef` is a SHELL EXPANSION (e.g.
+  # "$project_dir"), not a literal path, because the persistent location is
+  # only known at launch — so backends must place this inside bash double
+  # quotes, unlike sandboxNotice which is escapeShellArg-quoted. Keep the text
+  # free of double quotes, backticks and any other dollar sign.
+  persistenceNotice = projectDirRef:
+    " The only host-shared, persistent location is ${projectDirRef} and its " +
+    "subdirectories; that is where all work must be created and saved. " +
+    "Everything else in this sandbox, including the home directory, /tmp, " +
+    "/run and any directory you create elsewhere, is an ephemeral tmpfs that " +
+    "is DISCARDED without warning when the sandbox exits. Never create a new " +
+    "project, repository or output file outside ${projectDirRef}.";
 
   # Host /etc paths forwarded into the sandbox (read-only).
   # Bubblewrap: --ro-bind-try per path

@@ -117,7 +117,7 @@ writeShellApplication {
       exit 1
     fi
 
-    sandbox_notice=${lib.escapeShellArg (spec.sandboxNotice "container")}
+    sandbox_notice=${lib.escapeShellArg (spec.sandboxNotice "container")}"${spec.persistenceNotice "$project_dir"}"
 
     # Clean up stale container roots from previous runs killed with SIGKILL
     for stale in /tmp/claude-nspawn.*/; do

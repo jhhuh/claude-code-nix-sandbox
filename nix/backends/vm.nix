@@ -248,7 +248,7 @@ writeShellApplication {
       exit 1
     fi
 
-    sandbox_notice=${lib.escapeShellArg (spec.sandboxNotice "vm")}
+    sandbox_notice=${lib.escapeShellArg (spec.sandboxNotice "vm")}"${spec.persistenceNotice "$project_dir"}"
 
     # Clean up stale VM temp files from previous runs killed with SIGKILL
     for stale in /tmp/claude-vm-meta.*/; do

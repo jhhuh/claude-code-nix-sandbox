@@ -72,7 +72,7 @@ writeShellApplication {
       exit 1
     fi
 
-    sandbox_notice=${lib.escapeShellArg (spec.sandboxNotice "bubblewrap")}
+    sandbox_notice=${lib.escapeShellArg (spec.sandboxNotice "bubblewrap")}"${spec.persistenceNotice "$project_dir"}"
 
     # X11 display forwarding
     x11_args=()
