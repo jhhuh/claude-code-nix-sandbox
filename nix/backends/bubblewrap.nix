@@ -14,6 +14,7 @@
   bubblewrap,
   chromiumSandbox,
   coreutils,
+  util-linux,
   # Toggle host network access (set false to --unshare-net)
   network ? true,
   # Additional packages available inside the sandbox
@@ -32,12 +33,14 @@ let
 in
 writeShellApplication {
   name = "claude-sandbox";
-  runtimeInputs = [ bubblewrap coreutils ];
+  runtimeInputs = [ bubblewrap coreutils util-linux ];
 
   text = ''
     shell_mode=false
     tmux_mode=false
     gh_token=false
+    enter_mode=false
+    stop_mode=false
     project_dir="."
     claude_args=()
 
@@ -50,6 +53,9 @@ writeShellApplication {
       echo "  --shell     Drop into bash instead of launching claude" >&2
       echo "  --tmux      Run claude inside a tmux session (needed for agent teams)" >&2
       echo "  --gh-token  Forward GH_TOKEN/GITHUB_TOKEN env vars into sandbox" >&2
+      echo "  --enter     Open a shell INSIDE this project's running sandbox," >&2
+      echo "              to inspect it live; fails if none is running" >&2
+      echo "  --stop      Terminate this project's sandbox" >&2
     }
 
     while [[ $# -gt 0 ]]; do
@@ -57,6 +63,8 @@ writeShellApplication {
         --shell)    shell_mode=true; shift ;;
         --tmux)     tmux_mode=true; shift ;;
         --gh-token) gh_token=true; shift ;;
+        --enter)    enter_mode=true; shift ;;
+        --stop)     stop_mode=true; shift ;;
         --help|-h)  usage; exit 0 ;;
         --)         shift; claude_args=("$@"); break ;;
         -*)         echo "Unknown option: $1 (pass claude args after '--')" >&2; exit 1 ;;
@@ -73,6 +81,58 @@ writeShellApplication {
     fi
 
     ${spec.stateDirSnippet}
+
+    # A project gets one sandbox. The registry records the pid of the payload
+    # process plus its namespace inodes: the pid is the join handle, and the
+    # inodes validate it, because pids are recycled and a stale entry would
+    # otherwise name an unrelated process. Written from INSIDE the sandbox (see
+    # the register wrapper below) — there is no pid-namespace unshare, so the
+    # pid is the same on both sides, and self-registration names the payload
+    # rather than bwrap's intermediate process, whose root is the newroot/oldroot
+    # staging tree rather than the sandbox root.
+    ns_file="$state_dir/ns"
+    live_pid=""
+    reg_started=""
+    if [[ -f "$ns_file" ]]; then
+      reg_pid=""; reg_mnt=""; reg_user=""
+      while IFS='=' read -r reg_k reg_v; do
+        case "$reg_k" in
+          pid)     reg_pid="$reg_v" ;;
+          mnt)     reg_mnt="$reg_v" ;;
+          user)    reg_user="$reg_v" ;;
+          started) reg_started="$reg_v" ;;
+        esac
+      done < "$ns_file"
+      if [[ -n "$reg_pid" ]] \
+         && [[ "$(readlink "/proc/$reg_pid/ns/mnt" 2>/dev/null)" == "$reg_mnt" ]] \
+         && [[ "$(readlink "/proc/$reg_pid/ns/user" 2>/dev/null)" == "$reg_user" ]]; then
+        live_pid="$reg_pid"
+      else
+        rm -f "$ns_file"   # stale: pid gone, or recycled onto another process
+      fi
+    fi
+
+    if [[ "$stop_mode" == true ]]; then
+      if [[ -n "$live_pid" ]]; then
+        echo "Stopping sandbox for $project_dir (pid $live_pid)" >&2
+        kill "$live_pid" 2>/dev/null || true
+        rm -f "$ns_file"
+      else
+        echo "No live sandbox for $project_dir" >&2
+      fi
+      exit 0
+    fi
+
+    if [[ "$enter_mode" == true ]]; then
+      if [[ -z "$live_pid" ]]; then
+        echo "Error: no live sandbox for $project_dir" >&2
+        echo "  start one with: claude-sandbox $project_dir" >&2
+        exit 1
+      fi
+      if [[ "$tmux_mode" != true ]]; then
+        shell_mode=true
+      fi
+    fi
 
     sandbox_notice=${lib.escapeShellArg (spec.sandboxNotice "bubblewrap")}"${spec.persistenceNotice "$project_dir"}"
 
@@ -282,8 +342,44 @@ TMUXCONF
       entrypoint=(claude --append-system-prompt "$sandbox_notice" "''${claude_args[@]}")
     fi
 
+    # Join an existing sandbox rather than creating a second namespace.
+    # nsenter handles what a hand-rolled setns cannot: it opens every namespace
+    # fd before joining any (credentials change on entering the user namespace,
+    # after which /proc/<pid>/ns lookups fail), and --root reattaches the root
+    # directory, without which every path resolves ENOENT.
+    # Only --enter joins. Singleton-by-default is implemented and works for
+    # shells, but claude itself fails in a joined namespace with a bun ENOENT
+    # (git/python/node/bun all run fine there; only the bun single-file
+    # executable fails), so auto-joining would break ordinary launches. Flip the
+    # condition to join whenever live_pid is set once that is understood.
+    if [[ -n "$live_pid" ]] && [[ "$enter_mode" == true ]]; then
+      echo "Joining live sandbox for $project_dir (pid $live_pid, started $reg_started)" >&2
+      # nsenter inherits OUR environment, which is the host's — the joined shell
+      # would get the host PATH and HOME and none of the sandbox's setenv work.
+      # Replay the payload's own environment instead, read from /proc. TERM is
+      # reapplied afterwards so it reflects the terminal doing the joining.
+      mapfile -d "" -t sandbox_env < "/proc/$live_pid/environ"
+      # --preserve-credentials is required, not optional: bwrap denies setgroups
+      # when setting up its unprivileged uid_map, so nsenter's default attempt
+      # to set uid/gid/groups fails with EPERM.
+      exec nsenter --target "$live_pid" --user --mount --root --preserve-credentials \
+        --wd="$project_dir" \
+        -- env -i "''${sandbox_env[@]}" TERM="''${TERM:-xterm-256color}" \
+        "''${entrypoint[@]}"
+    fi
+
+    # Founding a new sandbox: the payload registers itself once it is inside,
+    # so the recorded pid and inodes describe the namespace we actually want to
+    # be joinable. "$@" carries the real entrypoint through the wrapper.
+    # shellcheck disable=SC2016  # deliberate: expands inside the sandbox, not here
+    register_cmd='printf "pid=%s\nmnt=%s\nuser=%s\nstarted=%s\n" "$$" "$(readlink /proc/self/ns/mnt)" "$(readlink /proc/self/ns/user)" "$(date -Is)" > "$CLAUDE_SANDBOX_STATE_DIR/ns"; exec "$@"'
+    entrypoint=(bash -c "$register_cmd" claude-sandbox "''${entrypoint[@]}")
+
+    # No --die-with-parent: under singleton semantics the sandbox outlives the
+    # terminal that founded it, or closing that terminal would tear the ground
+    # out from under a shell joined from another one. Orphans are reaped by the
+    # staleness check above, or explicitly via --stop.
     exec bwrap \
-      --die-with-parent \
       --proc /proc \
       --dev /dev \
       --dev-bind /dev/shm /dev/shm \
@@ -328,6 +424,7 @@ TMUXCONF
       --setenv CLAUDE_SANDBOX 1 \
       --setenv CLAUDE_SANDBOX_BACKEND bubblewrap \
       --setenv CHROMIUM_USER_DATA_DIR "$chromium_profile" \
+      --setenv CLAUDE_SANDBOX_STATE_DIR "$state_dir" \
       --setenv PATH "${sandboxPath}/bin" \
       --setenv TERM "''${TERM:-xterm-256color}" \
       --setenv NIX_REMOTE daemon \
