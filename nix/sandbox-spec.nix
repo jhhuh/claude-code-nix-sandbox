@@ -71,6 +71,33 @@
     tree
     vim
     util-linux  # nsenter joins a running sandbox's namespaces; also lsns, findmnt
+    strace      # the only practical way to see which file an opaque ENOENT means
+  ];
+
+  # nix-ld: let unpatched, dynamically-linked binaries run.
+  #
+  # Prebuilt npm native modules (.node), pip wheels with C extensions, and
+  # esbuild/ruff/uv-class tools are all built against the FHS loader and fail
+  # at exec with a "No such file or directory" that names a file which plainly
+  # exists. Claude Code plugins hit this whenever they fetch a prebuilt binary.
+  #
+  # Backends must set BOTH env vars to store paths. The host's values leak into
+  # the sandbox (bwrap does not clear the environment) and point into
+  # /run/current-system, which is a tmpfs here — so nix-ld would advertise
+  # itself as available and then fail on a dangling NIX_LD.
+  ldName = baseNameOf pkgs.stdenv.cc.bintools.dynamicLinker;
+  realLoader = pkgs.stdenv.cc.bintools.dynamicLinker;
+
+  nixLdLibraries = with pkgs; [
+    stdenv.cc.cc.lib  # libstdc++ / libgcc_s — the one most binaries need
+    zlib
+    openssl
+    curl
+    expat
+    sqlite
+    icu
+    libxml2
+    libuuid
   ];
 
   # Chrome extensions force-installed via managed policy.

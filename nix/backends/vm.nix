@@ -188,6 +188,15 @@ let
           CLAUDE_SANDBOX_BACKEND = "vm";
         };
 
+        # nix-ld, so unpatched prebuilt binaries (npm native modules, pip
+        # wheels) run. Unlike the container backend, the option is sufficient
+        # here: this is a real NixOS system, so systemd boots and tmpfiles
+        # installs the /lib64 loader symlink.
+        programs.nix-ld = {
+          enable = true;
+          libraries = spec.nixLdLibraries;
+        };
+
         networking = {
           hostName = "claude-sandbox";
           useDHCP = network;

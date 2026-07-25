@@ -14,6 +14,7 @@
   systemd,
   coreutils,
   chromiumSandbox,
+  nix-ld,
   nixos,
   # Toggle host network access (set false for private network)
   network ? true,
@@ -138,7 +139,15 @@ writeShellApplication {
     machine_name="claude-sandbox-''${container_root##*.}"
     trap 'rm -rf "$container_root"' EXIT
 
-    mkdir -p "$container_root"/{bin,etc,var/lib,run,tmp,usr/bin}
+    mkdir -p "$container_root"/{bin,etc,var/lib,run,tmp,usr/bin,lib,lib64}
+
+    # nix-ld loader shim. Created explicitly rather than via
+    # programs.nix-ld.enable: that option installs the symlink through
+    # systemd-tmpfiles, and this backend runs the entrypoint under --as-pid2
+    # without booting systemd, so tmpfiles never fires and the option would be
+    # a silent no-op.
+    ln -s "${nix-ld}/libexec/nix-ld" "$container_root/lib64/${spec.ldName}"
+    ln -s "${nix-ld}/libexec/nix-ld" "$container_root/lib/${spec.ldName}"
 
     # Standard shell paths for shebang compatibility
     ln -s "${toplevel}/sw/bin/env" "$container_root/usr/bin/env"
@@ -398,6 +407,8 @@ writeShellApplication {
       "''${console_args[@]}" \
       --setenv=HOME="$real_home" \
       --setenv=CHROMIUM_USER_DATA_DIR="$chromium_profile" \
+      --setenv=NIX_LD="${spec.realLoader}" \
+      --setenv=NIX_LD_LIBRARY_PATH="${lib.makeLibraryPath spec.nixLdLibraries}" \
       --setenv=PATH="${chromiumSandbox}/bin:${toplevel}/sw/bin" \
       --setenv=TERM="''${TERM:-xterm-256color}" \
       --setenv=NIX_REMOTE=daemon \

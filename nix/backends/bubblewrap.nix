@@ -15,6 +15,7 @@
   chromiumSandbox,
   coreutils,
   util-linux,
+  nix-ld,
   # Toggle host network access (set false to --unshare-net)
   network ? true,
   # Additional packages available inside the sandbox
@@ -412,6 +413,10 @@ TMUXCONF
       --dir /usr/bin \
       --symlink "${sandboxPath}/bin/bash" /usr/bin/bash \
       --ro-bind-try /usr/bin/env /usr/bin/env \
+      --dir /lib64 \
+      --symlink "${nix-ld}/libexec/nix-ld" /lib64/${spec.ldName} \
+      --dir /lib \
+      --symlink "${nix-ld}/libexec/nix-ld" /lib/${spec.ldName} \
       "''${x11_args[@]}" \
       "''${xauth_args[@]}" \
       "''${wayland_args[@]}" \
@@ -425,6 +430,8 @@ TMUXCONF
       --setenv CLAUDE_SANDBOX_BACKEND bubblewrap \
       --setenv CHROMIUM_USER_DATA_DIR "$chromium_profile" \
       --setenv CLAUDE_SANDBOX_STATE_DIR "$state_dir" \
+      --setenv NIX_LD "${spec.realLoader}" \
+      --setenv NIX_LD_LIBRARY_PATH "${lib.makeLibraryPath spec.nixLdLibraries}" \
       --setenv PATH "${sandboxPath}/bin" \
       --setenv TERM "''${TERM:-xterm-256color}" \
       --setenv NIX_REMOTE daemon \
