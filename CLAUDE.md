@@ -70,9 +70,12 @@ nix flake check                           # Evaluate + build all packages
 ./result/bin/claude-sandbox --stop <dir>   # Terminate the project's sandbox
 sudo ./result/bin/claude-sandbox-container <dir>         # Container mode
 sudo ./result/bin/claude-sandbox-container --shell <dir> # Container shell
+sudo ./result/bin/claude-sandbox-container --enter <dir> # Shell inside the RUNNING container
+sudo ./result/bin/claude-sandbox-container --stop <dir>  # Terminate the container
 nix build .#vm --builders ''             # VM (remote builder fails on initrd; build locally)
 ./result/bin/claude-sandbox-vm <dir>      # VM mode
 ./result/bin/claude-sandbox-vm --shell <dir>  # VM shell
+./result/bin/claude-sandbox-vm --enter <dir>  # Shell inside the RUNNING VM (2nd serial console)
 
 # Remote manager
 nix build .#manager                       # Build manager daemon

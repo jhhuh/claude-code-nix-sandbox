@@ -114,8 +114,36 @@
 
       # Checks: build all packages + NixOS VM tests
       checks = forAllSystems (system:
+        let pkgs = pkgsFor system;
+        in
         self.packages.${system} // {
-          manager-test = (pkgsFor system).testers.nixosTest (import ./tests/manager.nix { inherit self; });
+          manager-test = pkgs.testers.nixosTest (import ./tests/manager.nix { inherit self; });
+
+          # Assert every 9p share reaches the guest fstab.
+          #
+          # Building .#vm cannot catch this. qemu-vm.nix replaces the whole
+          # fileSystems attrset via mkVMOverride, so a share declared with
+          # `fileSystems` instead of `virtualisation.fileSystems` is silently
+          # dropped: no eval error, no warning, a VM that builds perfectly and
+          # mounts nothing. That is exactly what happened — the guest had no
+          # project dir, no ~/.claude and no /mnt/meta (which carries the
+          # entrypoint) — and every build-based check passed throughout.
+          vm-mounts = pkgs.runCommand "vm-mounts-check" { } ''
+            fstab=${self.packages.${system}.vm.vmSystem}/etc/fstab
+            missing=""
+            for tag in project_share claude_auth git_config git_config_dir \
+                       gh_config_dir ssh_dir claude_meta state_dir; do
+              grep -qE "^$tag " "$fstab" || missing="$missing $tag"
+            done
+            if [ -n "$missing" ]; then
+              echo "9p shares missing from the guest fstab:$missing" >&2
+              echo "Declare them as virtualisation.fileSystems, not fileSystems." >&2
+              echo "--- generated fstab ---" >&2
+              cat "$fstab" >&2
+              exit 1
+            fi
+            touch $out
+          '';
         });
 
       devShells = forAllSystems (system:

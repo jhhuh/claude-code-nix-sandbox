@@ -13,6 +13,7 @@
   writeShellApplication,
   coreutils,
   nixos,
+  socat,
   # Toggle host network access (set false for isolated network)
   network ? true,
   # Additional NixOS modules for the VM
@@ -132,9 +133,22 @@ let
         # Auto-login sandbox user on serial console (ttyS0)
         services.getty.autologinUser = "sandbox";
 
+        # Second serial console, backed by a Unix socket the launcher creates in
+        # the state dir, so `--enter` can open a shell in the running VM. A VM is
+        # not a namespace, so the nsenter approach the other backends use cannot
+        # apply; this avoids the alternative (sshd + key provisioning + port
+        # forwarding) and keeps working when the VM has no network.
+        systemd.services."serial-getty@ttyS1" = {
+          enable = true;
+          wantedBy = [ "getty.target" ];
+        };
+
         # Set up environment for sandbox user's login shell
         environment.interactiveShellInit = ''
-          if [[ "$(tty)" == /dev/ttyS0 ]]; then
+          # ttyS1 is the --enter console: it gets the same host-path and
+          # ~/.local setup, but must never run the entrypoint (that belongs to
+          # the primary console) and must not re-bind an already-bound project.
+          if [[ "$(tty)" == /dev/ttyS0 || "$(tty)" == /dev/ttyS1 ]]; then
             # Reconstruct host paths from metadata
             if [[ -f /mnt/meta/host_home ]]; then
               host_home=$(cat /mnt/meta/host_home)
@@ -167,7 +181,11 @@ let
             if [[ -f /mnt/meta/host_project ]]; then
               host_project=$(cat /mnt/meta/host_project)
               sudo mkdir -p "$host_project"
-              sudo mount --bind /project "$host_project"
+              # Guard: the --enter console runs this too, and bind-mounting a
+              # second time would stack mounts on the same path.
+              if ! mountpoint -q "$host_project"; then
+                sudo mount --bind /project "$host_project"
+              fi
             fi
 
             export DISPLAY=:0
@@ -185,8 +203,9 @@ let
             if [[ -f /mnt/meta/lc_all ]]; then
               export LC_ALL=$(cat /mnt/meta/lc_all)
             fi
-            # Run entrypoint (exec replaces shell in non-interactive mode)
-            if [[ -f /mnt/meta/entrypoint ]]; then
+            # Run entrypoint (exec replaces shell in non-interactive mode).
+            # Primary console only — ttyS1 is for interactive inspection.
+            if [[ "$(tty)" == /dev/ttyS0 ]] && [[ -f /mnt/meta/entrypoint ]]; then
               entrypoint=$(cat /mnt/meta/entrypoint)
               if [[ "$entrypoint" != "bash" ]]; then
                 eval exec $entrypoint
@@ -247,10 +266,11 @@ let
 in
 writeShellApplication {
   name = "claude-sandbox-vm";
-  runtimeInputs = [ coreutils ];
+  runtimeInputs = [ coreutils socat ];
 
   text = ''
     shell_mode=false
+    enter_mode=false
     gh_token=false
     project_dir="."
     claude_args=()
@@ -262,12 +282,14 @@ writeShellApplication {
       echo "  Anything after '--' is passed straight to claude." >&2
       echo "" >&2
       echo "  --shell     Drop into bash instead of launching claude" >&2
+      echo "  --enter     Open a shell INSIDE this project's running VM" >&2
       echo "  --gh-token  Forward GH_TOKEN/GITHUB_TOKEN env vars into VM" >&2
     }
 
     while [[ $# -gt 0 ]]; do
       case "$1" in
         --shell)    shell_mode=true; shift ;;
+        --enter)    enter_mode=true; shift ;;
         --gh-token) gh_token=true; shift ;;
         --help|-h)  usage; exit 0 ;;
         --)         shift; claude_args=("$@"); break ;;
@@ -292,6 +314,21 @@ writeShellApplication {
     # chromium rather than the wrapper, so it ignores CHROMIUM_USER_DATA_DIR,
     # and a SQLite-backed browser profile over 9p risks locking problems.
     mkdir -p "$state_dir/local"/{bin,lib,share}
+
+    # Socket backing the guest's second serial console (ttyS1). Lives in the
+    # state dir so --enter can find it without a registry: its existence and
+    # connectability ARE the liveness check.
+    console_sock="$state_dir/console.sock"
+
+    if [[ "$enter_mode" == true ]]; then
+      if [[ ! -S "$console_sock" ]]; then
+        echo "Error: no running VM for $project_dir" >&2
+        echo "  start one with: claude-sandbox-vm $project_dir" >&2
+        exit 1
+      fi
+      echo "Attaching to the VM's second console (Ctrl-] to detach)" >&2
+      exec socat -,raw,echo=0,escape=0x1d "unix-connect:$console_sock"
+    fi
 
     sandbox_notice=${lib.escapeShellArg (spec.sandboxNotice "vm")}"${spec.persistenceNotice "$project_dir"}"
 
@@ -359,6 +396,11 @@ writeShellApplication {
     qemu_extra+=(-virtfs "local,path=$project_dir,mount_tag=project_share,security_model=none,id=project_share")
     qemu_extra+=(-virtfs "local,path=$meta_dir,mount_tag=claude_meta,security_model=none,id=claude_meta,readonly=on")
     qemu_extra+=(-virtfs "local,path=$state_dir,mount_tag=state_dir,security_model=none,id=state_dir")
+    # Second serial device -> guest ttyS1. Appended after the build-time
+    # "-serial stdio", so stdio stays ttyS0 (the console claude runs on) and
+    # this becomes ttyS1. A stale socket from a killed VM would block bind.
+    rm -f "$console_sock"
+    qemu_extra+=(-serial "unix:$console_sock,server,nowait")
 
     host_claude_dir="''${HOME}/.claude"
     if [[ -d "$host_claude_dir" ]]; then
@@ -381,4 +423,11 @@ writeShellApplication {
     export QEMU_OPTS="''${qemu_extra[*]}"
     exec ${vmScript}/bin/run-claude-sandbox-vm
   '';
+}
+# Expose the guest system closure so checks can assert against the generated
+# config. Needed because the mkVMOverride trap (see the 9p mount fix) produces
+# a VM that builds perfectly and silently mounts nothing — no build-based
+# check can catch it, only an assertion on the guest's fstab.
+// {
+  vmSystem = vmSystem.config.system.build.toplevel;
 }

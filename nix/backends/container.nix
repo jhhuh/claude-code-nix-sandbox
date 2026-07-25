@@ -13,6 +13,7 @@
   writeShellApplication,
   systemd,
   coreutils,
+  util-linux,
   chromiumSandbox,
   nix-ld,
   nixos,
@@ -49,29 +50,23 @@ let
 in
 writeShellApplication {
   name = "claude-sandbox-container";
-  runtimeInputs = [ systemd coreutils ];
+  runtimeInputs = [ systemd coreutils util-linux ];
 
   text = ''
     if [[ "$(id -u)" -ne 0 ]]; then
       exec sudo --preserve-env "$0" "$@"
     fi
 
-    # Subcommand: bind — dynamically bind-mount a host dir into a running container
-    if [[ "''${1:-}" == "bind" ]]; then
-      shift
-      if [[ $# -lt 2 ]]; then
-        echo "Usage: claude-sandbox-container bind <project-dir> <host-path> [container-path]" >&2
-        exit 1
-      fi
-      bind_project="$(realpath "$1")"
-      bind_source="$(realpath "$2")"
-      bind_dest="''${3:-$bind_source}"
-      project_dir="$bind_project"
+    # Resolve the running container for a project. Sets $machine_name,
+    # $machine_file and $project_dir, or exits with an error.
+    # Shared by `bind`, `--enter` and `--stop`.
+    resolve_machine() {
+      project_dir="$(realpath "''${1:-.}")"
       state_home="$(getent passwd "''${SUDO_USER:-$USER}" | cut -d: -f6)"
       ${spec.stateDirSnippet}
       machine_file="$state_dir/machine"
       if [[ ! -f "$machine_file" ]]; then
-        echo "Error: no running container found for $bind_project" >&2
+        echo "Error: no running container for $project_dir" >&2
         exit 1
       fi
       machine_name="$(cat "$machine_file")"
@@ -80,8 +75,56 @@ writeShellApplication {
         rm -f "$machine_file"
         exit 1
       fi
+    }
+
+    # Subcommand: bind — dynamically bind-mount a host dir into a running container
+    if [[ "''${1:-}" == "bind" ]]; then
+      shift
+      if [[ $# -lt 2 ]]; then
+        echo "Usage: claude-sandbox-container bind <project-dir> <host-path> [container-path]" >&2
+        exit 1
+      fi
+      bind_source="$(realpath "$2")"
+      bind_dest="''${3:-$bind_source}"
+      resolve_machine "$1"
       machinectl bind "$machine_name" "$bind_source" "$bind_dest"
       exit $?
+    fi
+
+    # --stop / --enter against a running container.
+    #
+    # NOT machinectl shell/login: those ask the container's own systemd to spawn
+    # the process, and this backend runs bash under --as-pid2 rather than booting
+    # systemd, so there is nothing inside to service the request. nsenter against
+    # the machine leader works regardless of what PID 1 is.
+    if [[ "''${1:-}" == "--stop" ]]; then
+      shift
+      resolve_machine "''${1:-.}"
+      echo "Stopping container $machine_name" >&2
+      machinectl terminate "$machine_name"
+      rm -f "$machine_file"
+      exit 0
+    fi
+
+    if [[ "''${1:-}" == "--enter" ]]; then
+      shift
+      resolve_machine "''${1:-.}"
+      leader="$(machinectl show "$machine_name" -p Leader --value)"
+      if [[ -z "$leader" ]]; then
+        echo "Error: could not determine leader pid for $machine_name" >&2
+        exit 1
+      fi
+      enter_uid="$(id -u "''${SUDO_USER:-''${USER}}")"
+      enter_gid="$(id -g "''${SUDO_USER:-''${USER}}")"
+      echo "Entering container $machine_name (leader $leader)" >&2
+      # cd inside rather than nsenter --wd: --wd leaves the cwd unreachable from
+      # the new root, so getcwd(2) fails ENOENT and every bun single-file
+      # executable (claude included) dies with an opaque "could not find a file".
+      # shellcheck disable=SC2016  # deliberate: expands in the container, not here
+      enter_cmd='cd "$1" 2>/dev/null || cd /; shift; exec bash -l'
+      exec nsenter --target "$leader" --mount --uts --ipc --pid --root -- \
+        setpriv --reuid="$enter_uid" --regid="$enter_gid" --init-groups -- \
+        bash -c "$enter_cmd" bash "$project_dir"
     fi
 
     shell_mode=false
@@ -99,6 +142,8 @@ writeShellApplication {
       echo "" >&2
       echo "  --shell     Drop into bash instead of launching claude" >&2
       echo "  --gh-token  Forward GH_TOKEN/GITHUB_TOKEN env vars into container" >&2
+      echo "  --enter     Open a shell INSIDE this project's running container" >&2
+      echo "  --stop      Terminate this project's container" >&2
       echo "  bind        Bind-mount a host directory into a running container" >&2
     }
 
