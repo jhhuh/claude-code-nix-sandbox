@@ -129,8 +129,10 @@
     " Project work must be created and saved under ${projectDirRef}, which is " +
     "shared with the host and persists across sandbox restarts. A few paths " +
     "under the home directory are also bind-mounted and persistent — sandbox " +
-    "state such as the browser profile and .local, where tools installed by " +
-    "pip --user or npm land. Those are not part of the project and must never " +
+    "state such as the browser profile and .local, where tools you install " +
+    "there land (use a venv or --prefix for python: this interpreter disables " +
+    "user site-packages, so pip --user cannot work). Those are not part of " +
+    "the project and must never " +
     "hold project work. Everything else, including the rest of the home " +
     "directory, /tmp and /run, is an ephemeral tmpfs that is DISCARDED " +
     "without warning when the sandbox exits. Never create a new project, " +

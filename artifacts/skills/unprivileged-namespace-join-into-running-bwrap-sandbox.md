@@ -83,24 +83,60 @@ longer exists, and a pid recycled onto an unrelated process.
 terminal that founded the sandbox kills it under a shell joined from another
 terminal. Orphans are reaped by the staleness check at launch, or via `--stop`.
 
-## Open bug: bun single-file executables fail when joined
+## Never use `nsenter --wd` — it breaks getcwd(2), and thus every bun binary
 
-`claude` fails in a joined namespace with:
+This one cost hours and presented as a total red herring. `claude` failed in a
+joined namespace with:
 
 ```
 ENOENT: Bun could not find a file, and the code that produces this error is
 missing a better error.
 ```
 
-`git`, `python3`, `node` and `bun` itself all run fine there, so it is specific
-to the bun **single-file executable**. Ruled out by measurement, all identical
-between founded and joined: environment (diff is `SHLVL` only), uid/gid/groups,
-cwd, mnt namespace inode, `/proc/self/root`, and `/proc/self/exe` readability.
-The unwrapped binary fails the same way.
+`git`, `python3`, `node` and `bun` itself all ran fine, so it looked specific
+to bun **single-file executables**. Environment (diff was `SHLVL` alone),
+uid/gid/groups, mnt namespace inode, `/proc/self/root` and `/proc/self/exe`
+readability were all verified identical between founded and joined.
 
-This is why singleton-by-default is implemented but **not enabled** — joining
-is opt-in via `--enter`. Flipping it back on is a one-line condition change
-once this is understood.
+`strace` named it immediately — the tail of the trace is a `".."` walk:
+
+```
+openat(AT_FDCWD, "..", O_RDONLY) = 3
+openat(3, "..", O_RDONLY) = 4
+openat(4, "..", O_RDONLY) = 3
+...
+ENOENT: Bun could not find a file
+```
+
+That is a userspace `getcwd()` reimplementation climbing to the root. With
+`--wd=<dir>`, nsenter leaves the cwd **unreachable from the chroot root it
+installs**, so `getcwd(2)` fails ENOENT — while `/proc/self/cwd` still
+resolves correctly, which is what makes it so confusing:
+
+```
+python3 -c 'import os; os.getcwd()'  -> FileNotFoundError
+readlink /proc/self/cwd              -> /home/jhhuh/Sync/proj/...   (fine)
+```
+
+**Do not verify cwd with `pwd` in bash** — bash prints `$PWD` from the
+environment and never calls `getcwd`, so it reports success while the syscall
+is broken. That false signal is why the cause was missed for so long.
+
+Fix: drop `--wd` and `cd` after entry, so the path resolves against the new
+root and the cwd is reachable:
+
+```bash
+bash -c 'cd "$1" || exit 1; shift; exec "$@"' bash "$project_dir" "${entrypoint[@]}"
+```
+
+With that, claude runs joined and singleton-by-default works.
+
+## `--new` must not register
+
+An explicitly isolated sandbox must skip self-registration. Otherwise it
+overwrites the registry, hijacking the singleton slot from the sandbox already
+running for that project — which then becomes undiscoverable as soon as the
+`--new` one exits.
 
 ## Debugging note
 

@@ -393,3 +393,31 @@ Also corrected spec.persistenceNotice, which claimed the entire home directory
 was ephemeral. That was already false as of the state-dir commit and actively
 misleading once ~/.local persisted — the notice exists precisely to stop work
 being written somewhere that vanishes.
+
+## 2026-07-25 (later still) — the bun ENOENT was nsenter --wd
+
+Solved the blocker that kept singleton-by-default disabled, and it was never a
+bun bug. `strace` (newly shipped) named it in one run: the trace tail is a
+`".."` walk, i.e. a userspace getcwd() climbing to the root.
+
+`nsenter --wd=<dir>` leaves the cwd unreachable from the chroot root nsenter
+installs, so getcwd(2) fails ENOENT — while /proc/self/cwd still resolves
+correctly. bun single-file executables call getcwd at startup; git/python/node
+and bun itself do not, which is exactly why only claude appeared broken and
+why the diagnosis went sideways for so long.
+
+The false signal that cost the most: checking cwd with `pwd` in bash. Bash
+prints $PWD from the environment and never calls getcwd, so it reported the
+right directory while the syscall was broken. Verify syscalls with something
+that actually makes the syscall.
+
+Fix is to drop --wd and `cd` after entry, so the path resolves against the new
+root. Singleton-by-default is now on: a second invocation in a project joins
+the running sandbox and claude runs there normally. Found a follow-on bug while
+verifying — `--new` was self-registering and hijacking the singleton slot, so
+the original sandbox became undiscoverable once the --new one exited.
+
+Also closed two loops the advisor flagged: strace can genuinely ptrace inside
+the sandbox (not a hollow claim in the commit message), and `claude doctor`
+inside the sandbox reports "No installation issues found", which answers the
+original ~/.local/bin question directly rather than by assertion.

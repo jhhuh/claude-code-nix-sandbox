@@ -42,6 +42,7 @@ writeShellApplication {
     gh_token=false
     enter_mode=false
     stop_mode=false
+    new_mode=false
     project_dir="."
     claude_args=()
 
@@ -51,11 +52,15 @@ writeShellApplication {
       echo "  project-dir defaults to the current directory ('.')." >&2
       echo "  Anything after '--' is passed straight to claude." >&2
       echo "" >&2
+      echo "  A project gets ONE sandbox: if it is already running, this joins" >&2
+      echo "  it rather than creating a second, isolated namespace." >&2
+      echo "" >&2
       echo "  --shell     Drop into bash instead of launching claude" >&2
       echo "  --tmux      Run claude inside a tmux session (needed for agent teams)" >&2
       echo "  --gh-token  Forward GH_TOKEN/GITHUB_TOKEN env vars into sandbox" >&2
       echo "  --enter     Open a shell INSIDE this project's running sandbox," >&2
       echo "              to inspect it live; fails if none is running" >&2
+      echo "  --new       Force a fresh, isolated sandbox instead of joining" >&2
       echo "  --stop      Terminate this project's sandbox" >&2
     }
 
@@ -66,6 +71,7 @@ writeShellApplication {
         --gh-token) gh_token=true; shift ;;
         --enter)    enter_mode=true; shift ;;
         --stop)     stop_mode=true; shift ;;
+        --new)      new_mode=true; shift ;;
         --help|-h)  usage; exit 0 ;;
         --)         shift; claude_args=("$@"); break ;;
         -*)         echo "Unknown option: $1 (pass claude args after '--')" >&2; exit 1 ;;
@@ -360,12 +366,7 @@ TMUXCONF
     # fd before joining any (credentials change on entering the user namespace,
     # after which /proc/<pid>/ns lookups fail), and --root reattaches the root
     # directory, without which every path resolves ENOENT.
-    # Only --enter joins. Singleton-by-default is implemented and works for
-    # shells, but claude itself fails in a joined namespace with a bun ENOENT
-    # (git/python/node/bun all run fine there; only the bun single-file
-    # executable fails), so auto-joining would break ordinary launches. Flip the
-    # condition to join whenever live_pid is set once that is understood.
-    if [[ -n "$live_pid" ]] && [[ "$enter_mode" == true ]]; then
+    if [[ -n "$live_pid" ]] && [[ "$new_mode" != true ]]; then
       echo "Joining live sandbox for $project_dir (pid $live_pid, started $reg_started)" >&2
       # nsenter inherits OUR environment, which is the host's — the joined shell
       # would get the host PATH and HOME and none of the sandbox's setenv work.
@@ -375,18 +376,32 @@ TMUXCONF
       # --preserve-credentials is required, not optional: bwrap denies setgroups
       # when setting up its unprivileged uid_map, so nsenter's default attempt
       # to set uid/gid/groups fails with EPERM.
+      #
+      # Do NOT use --wd. It leaves the cwd unreachable from the chroot root
+      # nsenter installs, so getcwd(2) fails ENOENT while /proc/self/cwd still
+      # resolves — which broke every bun single-file executable (claude
+      # included), since bun walks ".." to reconstruct the cwd at startup. It
+      # surfaced only as an opaque "Bun could not find a file". cd-ing after
+      # entry resolves the path against the new root, so the cwd is reachable.
+      # shellcheck disable=SC2016  # deliberate: runs in the joined shell, not here
+      join_cmd='cd "$1" || exit 1; shift; exec "$@"'
       exec nsenter --target "$live_pid" --user --mount --root --preserve-credentials \
-        --wd="$project_dir" \
         -- env -i "''${sandbox_env[@]}" TERM="''${TERM:-xterm-256color}" \
-        "''${entrypoint[@]}"
+        bash -c "$join_cmd" bash "$project_dir" "''${entrypoint[@]}"
     fi
 
     # Founding a new sandbox: the payload registers itself once it is inside,
     # so the recorded pid and inodes describe the namespace we actually want to
     # be joinable. "$@" carries the real entrypoint through the wrapper.
-    # shellcheck disable=SC2016  # deliberate: expands inside the sandbox, not here
-    register_cmd='printf "pid=%s\nmnt=%s\nuser=%s\nstarted=%s\n" "$$" "$(readlink /proc/self/ns/mnt)" "$(readlink /proc/self/ns/user)" "$(date -Is)" > "$CLAUDE_SANDBOX_STATE_DIR/ns"; exec "$@"'
-    entrypoint=(bash -c "$register_cmd" claude-sandbox "''${entrypoint[@]}")
+    # A --new sandbox must NOT register: it is explicitly an extra, isolated
+    # namespace, and registering would hijack the singleton slot from the
+    # sandbox already running for this project, which would then become
+    # undiscoverable once the --new one exited.
+    if [[ "$new_mode" != true ]]; then
+      # shellcheck disable=SC2016  # deliberate: expands inside the sandbox, not here
+      register_cmd='printf "pid=%s\nmnt=%s\nuser=%s\nstarted=%s\n" "$$" "$(readlink /proc/self/ns/mnt)" "$(readlink /proc/self/ns/user)" "$(date -Is)" > "$CLAUDE_SANDBOX_STATE_DIR/ns"; exec "$@"'
+      entrypoint=(bash -c "$register_cmd" claude-sandbox "''${entrypoint[@]}")
+    fi
 
     # No --die-with-parent: under singleton semantics the sandbox outlives the
     # terminal that founded it, or closing that terminal would tear the ground

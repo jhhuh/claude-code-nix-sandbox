@@ -1,0 +1,59 @@
+openat(AT_FDCWD, "/nix/store/l8si8gnvvq93yzms1jsgh5aixyf9rl5x-glibc-2.42-67/lib/glibc-hwcaps/x86-64-v3/libc.so.6", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/nix/store/l8si8gnvvq93yzms1jsgh5aixyf9rl5x-glibc-2.42-67/lib/glibc-hwcaps/x86-64-v2/libc.so.6", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/nix/store/l8si8gnvvq93yzms1jsgh5aixyf9rl5x-glibc-2.42-67/lib/libc.so.6", O_RDONLY|O_CLOEXEC) = 3
+openat(AT_FDCWD, "/nix/store/l8si8gnvvq93yzms1jsgh5aixyf9rl5x-glibc-2.42-67/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/nix/store/l8si8gnvvq93yzms1jsgh5aixyf9rl5x-glibc-2.42-67/lib/glibc-hwcaps/x86-64-v3/librt.so.1", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/nix/store/l8si8gnvvq93yzms1jsgh5aixyf9rl5x-glibc-2.42-67/lib/glibc-hwcaps/x86-64-v2/librt.so.1", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD, "/nix/store/l8si8gnvvq93yzms1jsgh5aixyf9rl5x-glibc-2.42-67/lib/librt.so.1", O_RDONLY|O_CLOEXEC) = 3
+openat(AT_FDCWD, "/nix/store/l8si8gnvvq93yzms1jsgh5aixyf9rl5x-glibc-2.42-67/lib/libc.so.6", O_RDONLY|O_CLOEXEC) = 3
+openat(AT_FDCWD, "/nix/store/l8si8gnvvq93yzms1jsgh5aixyf9rl5x-glibc-2.42-67/lib/libpthread.so.0", O_RDONLY|O_CLOEXEC) = 3
+openat(AT_FDCWD, "/nix/store/l8si8gnvvq93yzms1jsgh5aixyf9rl5x-glibc-2.42-67/lib/libdl.so.2", O_RDONLY|O_CLOEXEC) = 3
+openat(AT_FDCWD, "/nix/store/l8si8gnvvq93yzms1jsgh5aixyf9rl5x-glibc-2.42-67/lib/libm.so.6", O_RDONLY|O_CLOEXEC) = 3
+strace: Process 1213378 attached
+[pid 1213377] openat(AT_FDCWD, "/proc/self/maps", O_RDONLY|O_CLOEXEC) = 3
+[pid 1213377] openat(AT_FDCWD, "/proc/sys/vm/mmap_min_addr", O_RDONLY) = 3
+[pid 1213377] openat(AT_FDCWD, "/proc/self/maps", O_RDONLY|O_CLOEXEC) = 3
+[pid 1213377] openat(AT_FDCWD, "/sys/devices/system/cpu/online", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+[pid 1213377] openat(AT_FDCWD, "/proc/stat", O_RDONLY|O_CLOEXEC) = 3
+[pid 1213377] openat(AT_FDCWD, "/proc/self/cgroup", O_RDONLY|O_CLOEXEC) = 3
+[pid 1213377] openat(AT_FDCWD, "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/tmux-spawn-d1c4be17-bd37-4a54-9c40-cac25be64ec4.scope/cpu.max", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+[pid 1213377] openat(AT_FDCWD, "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/cpu.max", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+[pid 1213377] openat(AT_FDCWD, "/sys/fs/cgroup/user.slice/user-1000.slice/cpu.max", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+[pid 1213377] openat(AT_FDCWD, "/sys/fs/cgroup/user.slice/cpu.max", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+[pid 1213377] openat(AT_FDCWD, "/sys/fs/cgroup/cpu.max", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+[pid 1213377] openat(AT_FDCWD, "/etc/localtime", O_RDONLY|O_CLOEXEC) = 5
+[pid 1213377] openat(AT_FDCWD, "/dev/urandom", O_RDONLY) = 5
+[pid 1213377] openat(AT_FDCWD, "/proc/self/cgroup", O_RDONLY|O_CLOEXEC) = 6
+[pid 1213377] openat(AT_FDCWD, "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/tmux-spawn-d1c4be17-bd37-4a54-9c40-cac25be64ec4.scope/memory.max", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+[pid 1213377] openat(AT_FDCWD, "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/tmux-spawn-d1c4be17-bd37-4a54-9c40-cac25be64ec4.scope/memory.high", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+[pid 1213377] openat(AT_FDCWD, "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/memory.max", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+[pid 1213377] openat(AT_FDCWD, "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/memory.high", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+[pid 1213377] openat(AT_FDCWD, "/sys/fs/cgroup/user.slice/user-1000.slice/memory.max", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+[pid 1213377] openat(AT_FDCWD, "/sys/fs/cgroup/user.slice/user-1000.slice/memory.high", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+[pid 1213377] openat(AT_FDCWD, "/sys/fs/cgroup/user.slice/memory.max", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+[pid 1213377] openat(AT_FDCWD, "/sys/fs/cgroup/user.slice/memory.high", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+[pid 1213377] openat(AT_FDCWD, "/sys/fs/cgroup/memory.max", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+[pid 1213377] openat(AT_FDCWD, "/sys/fs/cgroup/memory.high", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+[pid 1213377] openat(AT_FDCWD, "/usr/share/zoneinfo/", O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_DIRECTORY) = -1 ENOENT (No such file or directory)
+[pid 1213377] openat(AT_FDCWD, "/usr/share/zoneinfo/", O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_DIRECTORY) = -1 ENOENT (No such file or directory)
+[pid 1213377] openat(AT_FDCWD, "/proc/self/statm", O_RDONLY|O_CLOEXEC) = 6
+[pid 1213377] openat(AT_FDCWD, "/proc/self/maps", O_RDONLY|O_CLOEXEC) = 7
+strace: Process 1213379 attached
+strace: Process 1213380 attached
+strace: Process 1213381 attached
+strace: Process 1213382 attached
+strace: Process 1213383 attached
+strace: Process 1213384 attached
+strace: Process 1213385 attached
+[pid 1213377] openat(AT_FDCWD, "/sys/kernel/debug/tracing/trace_marker", O_WRONLY) = -1 ENOENT (No such file or directory)
+strace: Process 1213386 attached
+[pid 1213385] +++ exited with 0 +++
+[pid 1213384] +++ exited with 0 +++
+[pid 1213383] +++ exited with 0 +++
+[pid 1213382] +++ exited with 0 +++
+[pid 1213381] +++ exited with 0 +++
+[pid 1213380] +++ exited with 0 +++
+[pid 1213379] +++ exited with 0 +++
+[pid 1213378] +++ exited with 0 +++
+[pid 1213386] +++ exited with 0 +++
++++ exited with 0 +++
