@@ -72,6 +72,53 @@
     vim
     util-linux  # nsenter joins a running sandbox's namespaces; also lsns, findmnt
     strace      # the only practical way to see which file an opaque ENOENT means
+
+    # Assumed by claude-code plugins and hooks. Grounded in a scan of
+    # ~/.claude/plugins for external command references, not guesswork: uv
+    # appeared 57 times, jq 65, shellcheck 10, shfmt 8. A missing one of these
+    # is a "command not found" inside someone else's script.
+    uv          # also the answer to nixpkgs python: PEP 668 marks it externally
+                # managed AND user site-packages are disabled, so `pip --user`
+                # cannot work at all. uv manages its own venvs and installs into
+                # ~/.local, which the state dir now persists.
+    shellcheck
+    shfmt
+    delta       # many gitconfigs set core.pager=delta; git output breaks without it
+    just
+    graphviz    # dot
+    parallel
+    gnupg       # git commit -S and signed tags fail without it
+    openssl
+    sqlite
+    yq-go       # the YAML counterpart to jq
+
+    # C toolchain. nix-ld lets prebuilt native binaries RUN, but an npm install
+    # with no prebuilt artifact falls back to node-gyp, which has to compile.
+    gcc
+    binutils
+    pkg-config
+
+    # Document, image and data conversion
+    imagemagick
+    pandoc
+    poppler-utils  # pdftotext
+
+    # Network diagnostics
+    dnsutils    # dig
+    iputils     # ping
+    netcat-gnu
+    socat
+
+    # Development workflow
+    direnv
+    entr
+    watchexec
+    hyperfine
+    tokei
+    cloc
+    age
+    sops
+    nano        # some tools default EDITOR=nano and hard-fail when it is absent
   ];
 
   # nix-ld: let unpatched, dynamically-linked binaries run.

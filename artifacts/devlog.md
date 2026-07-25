@@ -466,3 +466,32 @@ config: the VM now boots and mounts, which it demonstrably could not do
 before.
 Also note the remote builder fails the initrd derivation with
 "/setup: No such file or directory"; `--builders ''` works.
+
+## 2026-07-25 (tooling) — plugin-assumed tools, grounded in a scan
+
+A plugin assumed `uv` existed. Rather than guess at a list, scanned
+~/.claude/plugins for external command references: uv 57, jq 65, shellcheck
+10, shfmt 8, delta 83, just 80, dot 21, parallel 22 (counts include prose
+false positives, but the signal is clear). Shipped tier 1+2 from that plus a C
+toolchain.
+
+`uv` matters more than "another tool". It is the actual fix for the Python
+situation found earlier: nixpkgs python is PEP 668 externally-managed AND
+built with user site-packages disabled, so `pip install --user` cannot work at
+all. uv manages its own venvs and installs into ~/.local, which the per-project
+state dir now persists. Verified end to end: `uv tool install cowsay` lands in
+~/.local/bin and still runs in a fresh sandbox.
+
+Also shipped gcc/binutils/pkg-config. nix-ld lets prebuilt native binaries
+run, but an npm install with no prebuilt artifact falls back to node-gyp,
+which has to compile. Verified gcc actually compiles and runs a binary, not
+merely that the command resolves — the multi-output trap means a package can
+be in the closure while its CLI is not on PATH, so every one of the 32 new
+tools was checked with `command -v` inside a real sandbox.
+
+Deliberately not shipped: docker/podman (no daemon, and nesting is its own
+project), language toolchains and cloud CLIs (these belong in the project's
+devShell — `nix develop` works inside the sandbox because the nix daemon
+socket is forwarded — and cloud CLIs raise credential-forwarding questions),
+ffmpeg/texlive (heavy, rare). The backends already expose `extraPackages` for
+per-user additions without touching the spec.
