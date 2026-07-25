@@ -34,7 +34,11 @@ let
           cores = 4;
           graphics = true;
           diskImage = "/tmp/claude-sandbox-vm.qcow2";
-          vlans = lib.mkIf (!network) [ ];
+          # No virtualisation.vlans: that option belongs to the NixOS test
+          # framework, not qemu-vm.nix, and nixpkgs no longer defines it here.
+          # A mkIf with a false condition still requires the option to exist,
+          # so this failed unconditionally and blocked every .#vm build.
+          # networking.useDHCP below already carries the `network` flag.
           qemu.options = [
             # Serial console on host stdio (for claude-code interaction)
             "-serial" "stdio"
