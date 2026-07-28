@@ -102,6 +102,14 @@ claude-remote ui                          # SSH tunnel for web dashboard
 - **CLI uses SSH**: all API calls via `ssh $HOST curl ...`, no direct HTTP from laptop
 
 
+## Project Direction
+
+An in-progress vision for the project's long run is drafted in
+`artifacts/plan_project-vision.md` — decisions made, the evidence behind them,
+a four-layer blueprint, work packages, and the open questions to resume from.
+It is a DRAFT, not an approved spec: read it before proposing architectural
+changes, and do not implement from it without resuming that conversation.
+
 ## Skill Files
 
 Non-obvious patterns discovered during development — read before modifying related code:

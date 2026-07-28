@@ -516,3 +516,29 @@ fatal bugs this session (virtualisation.vlans blocking every build, and every
 What IS runtime-verified: bubblewrap `--enter`, the singleton, the state dir,
 nix-ld, the persistent ~/.local, and the VM's 9p mounts and ~/.local (the
 latter confirmed by the user on the host).
+
+## 2026-07-28 — vision work, paused with a handoff
+
+Stepped back from features to ask what the project is for long-run. Captured
+in `artifacts/plan_project-vision.md`; paused before writing a formal spec, so
+that file is a draft and not an approved design.
+
+Five decisions: personal daily driver now expandable to agent-fleet
+infrastructure; local and remote on one substrate; hybrid identity (instances
+real, project dir an alias); substrate-first with the manager frozen rather
+than deleted or revived; and full decoupling from Claude Code via per-agent
+adapters, under the user's constraint that upgrading the agent must not
+require rebuilding the manager.
+
+The measurement that mattered most: `nix path-info -r ./result-manager` shows
+claude-code inside the manager's closure, via claude-sandbox →
+claude-sandbox-path. Since the manager is a systemd daemon with its store path
+baked into ExecStart, bumping the agent today restarts a live supervisor. That
+turned "agent is a parameter, not a build dependency" from a preference into a
+requirement.
+
+Also surfaced: the manager's state.json and the sandbox's new ns registry are
+two rival answers to "what is running", and they are semantically
+incompatible — the manager assumes it spawned a fresh instance while
+`claude-sandbox <dir>` now joins the project's existing one. That contradiction
+was introduced this session by the singleton change and is unresolved.
