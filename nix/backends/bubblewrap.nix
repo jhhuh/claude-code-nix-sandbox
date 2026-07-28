@@ -258,6 +258,18 @@ writeShellApplication {
     # concurrent sandboxes get distinct instances. Lives in the state dir, not
     # the project dir — a browser profile inside a repo is untracked junk at
     # best and committed cookies at worst.
+    # /tmp is a per-project directory under the HOST /tmp, bind-mounted in.
+    # It used to be a fresh tmpfs, so anything written there vanished when the
+    # sandbox exited. Living under the host /tmp rather than the state dir is
+    # deliberate: it still self-cleans on host reboot, which is what a temp
+    # directory should do, and it is short enough to reach from a host shell.
+    # Keyed like the state dir, so projects cannot collide, and 0700 so other
+    # users on the host cannot read it.
+    sandbox_tmp="/tmp/claude-sandbox/$sd_base-$sd_hash"
+    mkdir -p "$sandbox_tmp"
+    chmod 700 "$sandbox_tmp"
+    ln -sfn "$sandbox_tmp" "$state_dir/tmp"   # discoverable from the state dir
+
     chromium_profile="$state_dir/chromium"
     mkdir -p "$chromium_profile"
 
@@ -416,7 +428,7 @@ TMUXCONF
       --ro-bind-try /nix/var/nix/db /nix/var/nix/db \
       --bind-try /nix/var/nix/daemon-socket /nix/var/nix/daemon-socket \
       --ro-bind-try /run/current-system/sw /run/current-system/sw \
-      --tmpfs /tmp \
+      --bind "$sandbox_tmp" /tmp \
       --tmpfs /run \
       "''${xdg_runtime_args[@]}" \
       --dir /run/dbus \
