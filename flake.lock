@@ -8,11 +8,11 @@
         "systems": "systems"
       },
       "locked": {
-        "lastModified": 1787789419,
-        "narHash": "sha256-GjUH/k03ZGL6DpvEz34EbpTzIiIHHVEKWjNlOKU/0V4=",
+        "lastModified": 1787884211,
+        "narHash": "sha256-xNVPBUPNTst0qce4ZHMWabA6saGUsjM2H/m4LXvfMPs=",
         "owner": "sadjow",
         "repo": "claude-code-nix",
-        "rev": "803370e6c9745a37a9e5aaaf8a3cf87ee03625cd",
+        "rev": "3c503d54da2f313752e10ce5e7637ee26a6eaa8f",
         "type": "github"
       },
       "original": {
@@ -23,11 +23,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1787498568,
-        "narHash": "sha256-9i/VTdusq/+NM/tz+J1Re+ojkMB8MBf0QshnYfzHz30=",
+        "lastModified": 1787736819,
+        "narHash": "sha256-cV5xEJJK3BvhU8rEd4mC9UsmDi5qscv/kzGPhBRC5WA=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "56c02bc00adcf003215cc4bd996d6efaf4cff188",
+        "rev": "9fbb54b33e91ee4ca368e35a78e0613c720600b3",
         "type": "github"
       },
       "original": {
